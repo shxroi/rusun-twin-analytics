@@ -65,8 +65,8 @@ export const TOWERS: Tower[] = RUSUN_LIST.flatMap((r) =>
   r.towerIds.map((id, i) => ({
     id,
     rusunId: r.id,
-    name: `Tower ${TOWER_LETTERS[i]}`,
-    code: `${r.code}-T${TOWER_LETTERS[i]}`,
+    name: `Tower ${TOWER_LETTERS[i]!}`,
+    code: `${r.code}-T${TOWER_LETTERS[i]!}`,
     floors: FLOORS_PER_TOWER,
     unitsPerFloor: UNITS_PER_FLOOR,
   })),
