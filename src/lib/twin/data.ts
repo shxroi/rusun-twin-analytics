@@ -86,8 +86,8 @@ export const UNITS: Unit[] = TOWERS.flatMap((t) => {
         floor,
         slot,
         code: `${letter}-${floor * 100 + slot}`,
-        type: UNIT_TYPES[slot - 1],
-        area: UNIT_TYPES[slot - 1] === "45 m²" ? 45 : 36,
+        type: UNIT_TYPES[slot - 1]!,
+        area: UNIT_TYPES[slot - 1]! === "45 m²" ? 45 : 36,
         residents: 1 + Math.floor(r() * 4),
       });
     }
@@ -118,12 +118,12 @@ export function getRusunUnits(rusunId: string) {
 /* ------------------------------------------------------------------ readings */
 
 export function daysInMonth(monthKey: string) {
-  const [y, m] = monthKey.split("-").map(Number);
+  const [y, m] = monthKey.split("-").map(Number) as [number, number];
   return new Date(y, m, 0).getDate();
 }
 
 export function monthLabel(monthKey: string) {
-  const [y, m] = monthKey.split("-").map(Number);
+  const [y, m] = monthKey.split("-").map(Number) as [number, number];
   return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
 }
 
@@ -182,7 +182,7 @@ export function getUnitIntervalSeries(unitId: string, date: string): IntervalRea
     const m = String((i % 12) * 5).padStart(2, "0");
     out.push({
       timestamp: `${h}:${m}`,
-      electricity: +((shapes[i] / sum) * dayKwh).toFixed(4),
+      electricity: +((shapes[i]! / sum) * dayKwh).toFixed(4),
       water: +(waterBurstIdx.has(i) ? dayM3 * 0.5 : (dayM3 * 0.5) / 286).toFixed(4),
     });
   }
@@ -319,9 +319,9 @@ export function getUnitResidents(unitId: string): Resident[] {
   const r = rng(`${unitId}|residents`);
   return Array.from({ length: unit.residents }, () => ({
     name: `${FIRST[Math.floor(r() * FIRST.length)]} ${LAST[Math.floor(r() * LAST.length)]}`,
-    jabatan: JABATAN[Math.floor(r() * JABATAN.length)],
-    unitOrganisasi: ORG[Math.floor(r() * ORG.length)],
-    satuanKerja: SATKER[Math.floor(r() * SATKER.length)],
+    jabatan: JABATAN[Math.floor(r() * JABATAN.length)]!,
+    unitOrganisasi: ORG[Math.floor(r() * ORG.length)]!,
+    satuanKerja: SATKER[Math.floor(r() * SATKER.length)]!,
   }));
 }
 
