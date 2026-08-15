@@ -96,7 +96,7 @@ export const UNITS: Unit[] = TOWERS.flatMap((t) => {
 });
 
 export function getRusun(id: string) {
-  return RUSUN_LIST.find((r) => r.id === id) ?? RUSUN_LIST[0];
+  return RUSUN_LIST.find((r) => r.id === id) ?? RUSUN_LIST[0]!;
 }
 export function getTowers(rusunId: string) {
   return TOWERS.filter((t) => t.rusunId === rusunId);
