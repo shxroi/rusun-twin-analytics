@@ -14,7 +14,7 @@ export function StatCard({
 }: {
   label: string;
   value: string;
-  unit?: string;
+  unit?: string | undefined;
   icon: LucideIcon;
   tone?: "elec" | "water" | "cost" | "muted";
 }) {
