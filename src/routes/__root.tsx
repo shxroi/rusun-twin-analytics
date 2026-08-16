@@ -11,6 +11,10 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AppSidebar } from "@/components/twin/AppSidebar";
+import { Toaster } from "@/components/ui/sonner";
+import { TwinProvider } from "@/lib/twin/store";
+
 
 function NotFoundComponent() {
   return (
