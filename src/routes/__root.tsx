@@ -11,6 +11,10 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AppSidebar } from "@/components/twin/AppSidebar";
+import { Toaster } from "@/components/ui/sonner";
+import { TwinProvider } from "@/lib/twin/store";
+
 
 function NotFoundComponent() {
   return (
@@ -77,15 +81,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Rusun ASN IKN — Smart Metering Digital Twin" },
+      {
+        name: "description",
+        content:
+          "Predictive digital twin dashboard for electricity and water smart metering across Rusun ASN IKN towers.",
+      },
+      { name: "author", content: "Rusun ASN IKN" },
+      { property: "og:title", content: "Rusun ASN IKN — Smart Metering Digital Twin" },
+      {
+        property: "og:description",
+        content: "Interactive 3D building twin with consumption forecasting and anomaly detection.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
+
     links: [
       {
         rel: "stylesheet",
@@ -102,7 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <HeadContent />
       </head>
@@ -119,8 +130,15 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <TwinProvider>
+        <div className="flex min-h-screen w-full bg-background text-foreground">
+          <AppSidebar />
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </div>
+        <Toaster />
+      </TwinProvider>
     </QueryClientProvider>
   );
 }
+
