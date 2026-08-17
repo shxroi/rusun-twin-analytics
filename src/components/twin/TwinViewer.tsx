@@ -229,7 +229,6 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
         camera={{ position: [0, 13, 44], fov: 40 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        frameloop="demand"
       >
         <color attach="background" args={[colors["base"] ? "#0f1424" : "#0f1424"]} />
         <fog attach="fog" args={["#0f1424", 60, 130]} />
