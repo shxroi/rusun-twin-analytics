@@ -24,21 +24,32 @@ const TOWER_W = 5.2;
 const TOWER_D = 4.2;
 const GAP = 7.4;
 
-/** Category colors resolved from the CSS design tokens (no hardcoded hexes). */
+/**
+ * Category colors resolved from the CSS design tokens (no hardcoded hexes).
+ * Tokens are authored in oklch, which three.js cannot parse, so we let the
+ * browser convert each token to an rgb() string first.
+ */
 function useCategoryColors() {
   const [colors, setColors] = useState<Record<string, string>>({});
   useEffect(() => {
-    const style = getComputedStyle(document.documentElement);
+    const probe = document.createElement("span");
+    probe.style.display = "none";
+    document.body.appendChild(probe);
+    const resolve = (token: string) => {
+      probe.style.color = "";
+      probe.style.color = `var(--${token})`;
+      return getComputedStyle(probe).color || "#888888";
+    };
     const next: Record<string, string> = {};
-    for (const token of Object.values(CATEGORY_TOKEN)) {
-      next[token] = style.getPropertyValue(`--${token}`).trim();
-    }
-    next["base"] = style.getPropertyValue("--muted").trim();
-    next["accent"] = style.getPropertyValue("--primary").trim();
+    for (const token of Object.values(CATEGORY_TOKEN)) next[token] = resolve(token);
+    next["base"] = resolve("twin-shell");
+    next["accent"] = resolve("primary");
+    probe.remove();
     setColors(next);
   }, []);
   return colors;
 }
+
 
 function TowerMesh({
   index,
