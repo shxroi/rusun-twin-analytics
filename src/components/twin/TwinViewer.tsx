@@ -22,7 +22,7 @@ import type { EfficiencyCategory } from "@/lib/twin/types";
 const FLOOR_H = 0.62;
 const TOWER_W = 5.2;
 const TOWER_D = 4.2;
-const GAP = 7.4;
+const GAP = 6.6;
 
 /**
  * Category colors resolved from the CSS design tokens (no hardcoded hexes).
@@ -226,13 +226,13 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
   return (
     <div ref={wrapper} className="relative h-full w-full overflow-hidden rounded-xl bg-background/60">
       <Canvas
-        camera={{ position: [0, 14, 36], fov: 40 }}
+        camera={{ position: [0, 13, 44], fov: 40 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         frameloop="demand"
       >
         <color attach="background" args={[colors["base"] ? "#0f1424" : "#0f1424"]} />
-        <fog attach="fog" args={["#0f1424", 40, 90]} />
+        <fog attach="fog" args={["#0f1424", 60, 130]} />
         <ambientLight intensity={0.55} />
         <directionalLight position={[14, 20, 10]} intensity={1.1} />
         <directionalLight position={[-12, 8, -14]} intensity={0.4} />
@@ -263,7 +263,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
             selectedUnitId={twin.unitId}
             onSelect={twin.selectUnit}
           />
-          <Environment preset="city" />
+          <Environment preset="night" environmentIntensity={0.35} />
         </Suspense>
 
         <OrbitControls
@@ -273,7 +273,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           maxPolarAngle={Math.PI / 2.05}
           minDistance={6}
           maxDistance={70}
-          target={[0, 3.2, 0]}
+          target={[0, 2.6, 0]}
           makeDefault
         />
       </Canvas>
