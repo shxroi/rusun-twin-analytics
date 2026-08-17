@@ -32,14 +32,14 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const twin = useTwin();
-  const [elec, setElec] = useState(String(twin.tariff.electricityPerKwh));
-  const [water, setWater] = useState(String(twin.tariff.waterPerM3));
+  const [elec, setElec] = useState(String(twin.tariff.electricityRpPerKwh));
+  const [water, setWater] = useState(String(twin.tariff.waterRpPerM3));
 
   const save = () => {
     twin.setTariff({
       ...twin.tariff,
-      electricityPerKwh: Number(elec) || DEFAULT_TARIFF.electricityPerKwh,
-      waterPerM3: Number(water) || DEFAULT_TARIFF.waterPerM3,
+      electricityRpPerKwh: Number(elec) || DEFAULT_TARIFF.electricityRpPerKwh,
+      waterRpPerM3: Number(water) || DEFAULT_TARIFF.waterRpPerM3,
     });
     toast.success("Tariff configuration saved");
   };
@@ -68,8 +68,8 @@ function SettingsPage() {
               variant="outline"
               onClick={() => {
                 twin.setTariff(DEFAULT_TARIFF);
-                setElec(String(DEFAULT_TARIFF.electricityPerKwh));
-                setWater(String(DEFAULT_TARIFF.waterPerM3));
+                setElec(String(DEFAULT_TARIFF.electricityRpPerKwh));
+                setWater(String(DEFAULT_TARIFF.waterRpPerM3));
                 toast.info("Reset to default tariff");
               }}
             >
