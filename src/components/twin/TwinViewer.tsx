@@ -228,7 +228,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
   return (
     <div ref={wrapper} className="relative h-full w-full overflow-hidden rounded-xl bg-background/60">
       <Canvas
-        camera={{ position: [0, 9.5, 27], fov: 42 }}
+        camera={{ position: [0, 12, 40], fov: 40 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
@@ -274,7 +274,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           maxPolarAngle={Math.PI / 2.05}
           minDistance={6}
           maxDistance={70}
-          target={[0, 4.4, 0]}
+          target={[0, 4.6, 0]}
           makeDefault
         />
       </Canvas>
