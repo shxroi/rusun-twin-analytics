@@ -19,29 +19,41 @@ import { getFloorSummaries, getTowers } from "@/lib/twin/data";
 import { useTwin } from "@/lib/twin/store";
 import type { EfficiencyCategory } from "@/lib/twin/types";
 
-const FLOOR_H = 0.62;
-const TOWER_W = 5.2;
-const TOWER_D = 4.2;
-const GAP = 7.4;
+const FLOOR_H = 0.9;
+const TOWER_W = 3.9;
+const TOWER_D = 3.3;
+const GAP = 5.0;
 
-/** Category colors resolved from the CSS design tokens (no hardcoded hexes). */
+/**
+ * Category colors resolved from the CSS design tokens (no hardcoded hexes).
+ * Tokens are authored in oklch, which three.js cannot parse, so we let the
+ * browser convert each token to an rgb() string first.
+ */
 function useCategoryColors() {
   const [colors, setColors] = useState<Record<string, string>>({});
   useEffect(() => {
-    const style = getComputedStyle(document.documentElement);
+    const probe = document.createElement("span");
+    probe.style.display = "none";
+    document.body.appendChild(probe);
+    const resolve = (token: string) => {
+      probe.style.color = "";
+      probe.style.color = `var(--${token})`;
+      return getComputedStyle(probe).color || "#888888";
+    };
     const next: Record<string, string> = {};
-    for (const token of Object.values(CATEGORY_TOKEN)) {
-      next[token] = style.getPropertyValue(`--${token}`).trim();
-    }
-    next["base"] = style.getPropertyValue("--muted").trim();
-    next["accent"] = style.getPropertyValue("--primary").trim();
+    for (const token of Object.values(CATEGORY_TOKEN)) next[token] = resolve(token);
+    next["base"] = resolve("twin-shell");
+    next["accent"] = resolve("primary");
+    probe.remove();
     setColors(next);
   }, []);
   return colors;
 }
 
+
 function TowerMesh({
   index,
+  count,
   floors,
   active,
   label,
@@ -52,6 +64,7 @@ function TowerMesh({
   accentColor,
 }: {
   index: number;
+  count: number;
   floors: number;
   active: boolean;
   label: string;
@@ -61,13 +74,15 @@ function TowerMesh({
   baseColor: string;
   accentColor: string;
 }) {
-  const x = (index - 2.5) * GAP;
+  const x = (index - (count - 1) / 2) * GAP;
   const slabs = useMemo(() => Array.from({ length: floors }, (_, i) => i + 1), [floors]);
 
   return (
     <group position={[x, 0, 0]}>
       {slabs.map((f) => {
         const isFloor = active && f === selectedFloor;
+        // The selected floor is rendered as individual coloured unit blocks.
+        if (isFloor) return null;
         return (
           <mesh
             key={f}
@@ -113,12 +128,14 @@ function TowerMesh({
 
 function UnitBlocks({
   towerIndex,
+  towerCount,
   floor,
   colorFor,
   selectedUnitId,
   onSelect,
 }: {
   towerIndex: number;
+  towerCount: number;
   floor: number;
   colorFor: (c: EfficiencyCategory) => string;
   selectedUnitId: string | null;
@@ -129,7 +146,7 @@ function UnitBlocks({
     () => getFloorSummaries(twin.towerId, floor, twin.monthKey),
     [twin.towerId, floor, twin.monthKey],
   );
-  const x0 = (towerIndex - 2.5) * GAP;
+  const x0 = (towerIndex - (towerCount - 1) / 2) * GAP;
 
   return (
     <group position={[x0, (floor - 0.5) * FLOOR_H, 0]}>
@@ -142,14 +159,14 @@ function UnitBlocks({
         return (
           <mesh
             key={s.unit.id}
-            position={[(col - 1) * 1.65, 0, row === 0 ? -1.05 : 1.05]}
+            position={[(col - 1) * 1.28, 0, row === 0 ? -0.82 : 0.82]}
             scale={selected ? 1.08 : 1}
             onClick={(e) => {
               e.stopPropagation();
               onSelect(s.unit.id);
             }}
           >
-            <boxGeometry args={[1.5, FLOOR_H * 1.02, 1.85]} />
+            <boxGeometry args={[1.2, FLOOR_H * 0.94, 1.5]} />
             <meshStandardMaterial
               color={colorFor(cat)}
               emissive={colorFor(cat)}
@@ -211,17 +228,16 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
   return (
     <div ref={wrapper} className="relative h-full w-full overflow-hidden rounded-xl bg-background/60">
       <Canvas
-        camera={{ position: [16, 12, 22], fov: 42 }}
+        camera={{ position: [0, 7, 50], fov: 38 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        frameloop="demand"
       >
         <color attach="background" args={[colors["base"] ? "#0f1424" : "#0f1424"]} />
-        <fog attach="fog" args={["#0f1424", 40, 90]} />
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[14, 20, 10]} intensity={1.1} />
-        <directionalLight position={[-12, 8, -14]} intensity={0.4} />
-        <gridHelper args={[90, 30, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
+        <fog attach="fog" args={["#0f1424", 60, 130]} />
+        <ambientLight intensity={0.32} />
+        <directionalLight position={[14, 20, 10]} intensity={0.75} />
+        <directionalLight position={[-12, 8, -14]} intensity={0.3} />
+        <gridHelper args={[60, 24, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
 
         <Suspense fallback={<Loading />}>
           {glbUrl ? <GlbModel url={glbUrl} /> : null}
@@ -229,6 +245,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
             <TowerMesh
               key={t.id}
               index={i}
+              count={towers.length}
               floors={t.floors}
               label={t.name}
               active={t.id === twin.towerId}
@@ -241,12 +258,13 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           ))}
           <UnitBlocks
             towerIndex={activeIndex}
+            towerCount={towers.length}
             floor={twin.floor}
             colorFor={colorFor}
             selectedUnitId={twin.unitId}
             onSelect={twin.selectUnit}
           />
-          <Environment preset="city" />
+          <Environment preset="night" environmentIntensity={0.35} />
         </Suspense>
 
         <OrbitControls
@@ -256,7 +274,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           maxPolarAngle={Math.PI / 2.05}
           minDistance={6}
           maxDistance={70}
-          target={[0, 3.5, 0]}
+          target={[0, 3.4, 0]}
           makeDefault
         />
       </Canvas>
