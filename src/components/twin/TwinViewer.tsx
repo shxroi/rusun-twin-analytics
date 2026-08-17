@@ -53,6 +53,7 @@ function useCategoryColors() {
 
 function TowerMesh({
   index,
+  count,
   floors,
   active,
   label,
@@ -63,6 +64,7 @@ function TowerMesh({
   accentColor,
 }: {
   index: number;
+  count: number;
   floors: number;
   active: boolean;
   label: string;
@@ -72,7 +74,7 @@ function TowerMesh({
   baseColor: string;
   accentColor: string;
 }) {
-  const x = (index - 2.5) * GAP;
+  const x = (index - (count - 1) / 2) * GAP;
   const slabs = useMemo(() => Array.from({ length: floors }, (_, i) => i + 1), [floors]);
 
   return (
@@ -124,12 +126,14 @@ function TowerMesh({
 
 function UnitBlocks({
   towerIndex,
+  towerCount,
   floor,
   colorFor,
   selectedUnitId,
   onSelect,
 }: {
   towerIndex: number;
+  towerCount: number;
   floor: number;
   colorFor: (c: EfficiencyCategory) => string;
   selectedUnitId: string | null;
@@ -140,7 +144,7 @@ function UnitBlocks({
     () => getFloorSummaries(twin.towerId, floor, twin.monthKey),
     [twin.towerId, floor, twin.monthKey],
   );
-  const x0 = (towerIndex - 2.5) * GAP;
+  const x0 = (towerIndex - (towerCount - 1) / 2) * GAP;
 
   return (
     <group position={[x0, (floor - 0.5) * FLOOR_H, 0]}>
@@ -222,7 +226,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
   return (
     <div ref={wrapper} className="relative h-full w-full overflow-hidden rounded-xl bg-background/60">
       <Canvas
-        camera={{ position: [16, 12, 22], fov: 42 }}
+        camera={{ position: [0, 14, 36], fov: 40 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         frameloop="demand"
@@ -240,6 +244,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
             <TowerMesh
               key={t.id}
               index={i}
+              count={towers.length}
               floors={t.floors}
               label={t.name}
               active={t.id === twin.towerId}
@@ -252,6 +257,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           ))}
           <UnitBlocks
             towerIndex={activeIndex}
+            towerCount={towers.length}
             floor={twin.floor}
             colorFor={colorFor}
             selectedUnitId={twin.unitId}
@@ -267,7 +273,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           maxPolarAngle={Math.PI / 2.05}
           minDistance={6}
           maxDistance={70}
-          target={[0, 3.5, 0]}
+          target={[0, 3.2, 0]}
           makeDefault
         />
       </Canvas>
