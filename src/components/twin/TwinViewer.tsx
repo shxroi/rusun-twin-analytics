@@ -228,15 +228,15 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
   return (
     <div ref={wrapper} className="relative h-full w-full overflow-hidden rounded-xl bg-background/60">
       <Canvas
-        camera={{ position: [0, 12, 40], fov: 40 }}
+        camera={{ position: [0, 8.5, 46], fov: 38 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
         <color attach="background" args={[colors["base"] ? "#0f1424" : "#0f1424"]} />
         <fog attach="fog" args={["#0f1424", 60, 130]} />
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[14, 20, 10]} intensity={1.1} />
-        <directionalLight position={[-12, 8, -14]} intensity={0.4} />
+        <ambientLight intensity={0.32} />
+        <directionalLight position={[14, 20, 10]} intensity={0.75} />
+        <directionalLight position={[-12, 8, -14]} intensity={0.3} />
         <gridHelper args={[60, 24, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
 
         <Suspense fallback={<Loading />}>
@@ -274,7 +274,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           maxPolarAngle={Math.PI / 2.05}
           minDistance={6}
           maxDistance={70}
-          target={[0, 4.6, 0]}
+          target={[0, 4.5, 0]}
           makeDefault
         />
       </Canvas>
