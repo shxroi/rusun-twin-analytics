@@ -1,4 +1,4 @@
-import { OrbitControls, Environment, Html, useGLTF } from "@react-three/drei";
+import { OrbitControls, Html, useGLTF } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Maximize2, RotateCcw, Loader2 } from "lucide-react";
 import {
@@ -264,8 +264,11 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
             selectedUnitId={twin.unitId}
             onSelect={twin.selectUnit}
           />
-          <Environment preset="night" environmentIntensity={0.35} />
         </Suspense>
+
+        {/* Local lighting only — no remote HDRI fetch (avoids CDN rate limits). */}
+        <hemisphereLight args={["#8fa8d8", "#0f1424", 0.55]} />
+        <pointLight position={[0, 14, 18]} intensity={35} distance={70} decay={2} />
 
         <OrbitControls
           ref={controls}
