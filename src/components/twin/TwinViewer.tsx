@@ -19,10 +19,10 @@ import { getFloorSummaries, getTowers } from "@/lib/twin/data";
 import { useTwin } from "@/lib/twin/store";
 import type { EfficiencyCategory } from "@/lib/twin/types";
 
-const FLOOR_H = 0.62;
-const TOWER_W = 5.2;
-const TOWER_D = 4.2;
-const GAP = 6.6;
+const FLOOR_H = 0.9;
+const TOWER_W = 3.9;
+const TOWER_D = 3.3;
+const GAP = 5.0;
 
 /**
  * Category colors resolved from the CSS design tokens (no hardcoded hexes).
@@ -81,6 +81,8 @@ function TowerMesh({
     <group position={[x, 0, 0]}>
       {slabs.map((f) => {
         const isFloor = active && f === selectedFloor;
+        // The selected floor is rendered as individual coloured unit blocks.
+        if (isFloor) return null;
         return (
           <mesh
             key={f}
@@ -157,14 +159,14 @@ function UnitBlocks({
         return (
           <mesh
             key={s.unit.id}
-            position={[(col - 1) * 1.65, 0, row === 0 ? -1.05 : 1.05]}
+            position={[(col - 1) * 1.28, 0, row === 0 ? -0.82 : 0.82]}
             scale={selected ? 1.08 : 1}
             onClick={(e) => {
               e.stopPropagation();
               onSelect(s.unit.id);
             }}
           >
-            <boxGeometry args={[1.5, FLOOR_H * 1.02, 1.85]} />
+            <boxGeometry args={[1.2, FLOOR_H * 0.94, 1.5]} />
             <meshStandardMaterial
               color={colorFor(cat)}
               emissive={colorFor(cat)}
@@ -226,7 +228,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
   return (
     <div ref={wrapper} className="relative h-full w-full overflow-hidden rounded-xl bg-background/60">
       <Canvas
-        camera={{ position: [0, 13, 44], fov: 40 }}
+        camera={{ position: [0, 9.5, 27], fov: 42 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
@@ -235,7 +237,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
         <ambientLight intensity={0.55} />
         <directionalLight position={[14, 20, 10]} intensity={1.1} />
         <directionalLight position={[-12, 8, -14]} intensity={0.4} />
-        <gridHelper args={[90, 30, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
+        <gridHelper args={[60, 24, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
 
         <Suspense fallback={<Loading />}>
           {glbUrl ? <GlbModel url={glbUrl} /> : null}
@@ -272,7 +274,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           maxPolarAngle={Math.PI / 2.05}
           minDistance={6}
           maxDistance={70}
-          target={[0, 2.6, 0]}
+          target={[0, 4.4, 0]}
           makeDefault
         />
       </Canvas>
