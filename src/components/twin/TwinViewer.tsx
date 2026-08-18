@@ -25,12 +25,12 @@ const WING_GAP = 0.95; // circulation strip between the two wings
  * contour instead of standing in a straight row.
  */
 const SITE_LAYOUT: { x: number; z: number; rot: number }[] = [
-  { x: 9.5, z: -15.5, rot: -0.42 },
-  { x: 5.4, z: -9.6, rot: -0.34 },
-  { x: 7.4, z: -3.4, rot: -0.5 },
-  { x: 2.2, z: 2.6, rot: -0.3 },
-  { x: -5.2, z: 8.4, rot: -0.58 },
-  { x: -1.2, z: 14.2, rot: -0.22 },
+  { x: 11.5, z: -19.5, rot: -0.42 },
+  { x: 6.2, z: -11.5, rot: -0.34 },
+  { x: 9.0, z: -3.6, rot: -0.5 },
+  { x: 2.4, z: 4.2, rot: -0.3 },
+  { x: -6.4, z: 11.5, rot: -0.58 },
+  { x: -1.6, z: 19.0, rot: -0.22 },
 ];
 
 function layoutFor(i: number) {
@@ -345,7 +345,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
   return (
     <div ref={wrapper} className="relative h-full w-full overflow-hidden rounded-xl bg-background/60">
       <Canvas
-        camera={{ position: [26, 24, 44], fov: 40 }}
+        camera={{ position: [34, 30, 50], fov: 38 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
@@ -392,7 +392,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           maxPolarAngle={Math.PI / 2.05}
           minDistance={6}
           maxDistance={110}
-          target={[2, 4.5, 0]}
+          target={[2, 5, 0]}
           makeDefault
         />
       </Canvas>
