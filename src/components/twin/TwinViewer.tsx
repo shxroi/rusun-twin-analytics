@@ -49,8 +49,9 @@ function useCategoryColors() {
     const resolve = (token: string) => {
       probe.style.color = "";
       probe.style.color = `var(--${token})`;
-      return getComputedStyle(probe).color || "#888888";
+      return cssColorToHex(getComputedStyle(probe).color || "", "#888888");
     };
+
     const next: Record<string, string> = {};
     for (const token of Object.values(CATEGORY_TOKEN)) next[token] = resolve(token);
     next["base"] = resolve("twin-shell");
