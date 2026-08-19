@@ -16,9 +16,6 @@ import type { EfficiencyCategory } from "@/lib/twin/types";
 
 const FLOOR_H = 0.9;
 const PODIUM_H = 0.95;
-const WING_W = 3.6;
-const WING_D = 1.35;
-const WING_GAP = 0.95; // circulation strip between the two wings
 
 /**
  * Site layout traced from the Rusun ASN 3 satellite reference: the towers sit
@@ -69,8 +66,6 @@ function useCategoryColors() {
   }, []);
   return colors;
 }
-
-type Palette = Record<string, string>;
 
 /** Real architectural tower model (uploaded GLB), measured + normalised once. */
 function useTowerModel(url: string) {
