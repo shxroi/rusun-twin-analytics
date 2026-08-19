@@ -118,33 +118,18 @@ function GlbTower({
   const { scene, size, center } = useTowerModel(url);
   const dims = useTowerDims(url, floors);
 
-  const model = useMemo(() => {
-    const clone = scene.clone(true);
-    clone.traverse((o) => {
-      const m = o as THREE.Mesh;
-      if (!m.isMesh) return;
-      const src = m.material as THREE.Material | THREE.Material[];
-      const apply = (mat: THREE.Material) => {
-        const c = mat.clone();
-        c.transparent = !active;
-        (c as THREE.MeshStandardMaterial).opacity = active ? 1 : 0.32;
-        return c;
-      };
-      m.material = Array.isArray(src) ? src.map(apply) : apply(src);
-      m.castShadow = false;
-      m.receiveShadow = false;
-    });
-    return clone;
-  }, [scene, active]);
+  // Only the selected tower renders the full-detail model; the rest use a
+  // lightweight massing volume of identical dimensions so the site stays
+  // readable and the scene stays fast.
+  const model = useMemo(() => (active ? scene.clone(true) : null), [scene, active]);
 
   useEffect(() => {
     const target = model;
+    if (!target) return;
     return () => {
       target.traverse((o) => {
         const m = o as THREE.Mesh;
-        const mat = m.material as THREE.Material | THREE.Material[] | undefined;
-        if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
-        else mat?.dispose();
+        if (m.geometry) m.geometry.dispose();
       });
     };
   }, [model]);
@@ -153,12 +138,29 @@ function GlbTower({
 
   return (
     <group position={[site.x, 0, site.z]} rotation={[0, site.rot, 0]}>
-      <group
-        scale={dims.scale}
-        position={[-center.x * dims.scale, -(center.y - size.y / 2) * dims.scale, -center.z * dims.scale]}
-      >
-        <primitive object={model} />
-      </group>
+      {model ? (
+        <group
+          scale={dims.scale}
+          position={[
+            -center.x * dims.scale,
+            -(center.y - size.y / 2) * dims.scale,
+            -center.z * dims.scale,
+          ]}
+        >
+          <primitive object={model} />
+        </group>
+      ) : (
+        <mesh position={[0, dims.height / 2, 0]}>
+          <boxGeometry args={[dims.width, dims.height, dims.depth]} />
+          <meshStandardMaterial
+            color={shellColor}
+            transparent
+            opacity={0.42}
+            roughness={0.75}
+          />
+        </mesh>
+      )}
+
 
       {/* Invisible per-floor hit volumes keep tower / floor selection working. */}
       {slabs.map((f) => (
