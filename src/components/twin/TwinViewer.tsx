@@ -71,64 +71,36 @@ function useCategoryColors() {
 
 type Palette = Record<string, string>;
 
-/** One residential floor: two wood-clad wings either side of a white core strip. */
-function FloorSlab({
-  y,
-  active,
-  palette,
-  accentColor,
-  onClick,
-}: {
-  y: number;
-  active: boolean;
-  palette: Palette;
-  accentColor: string;
-  onClick: (e: { stopPropagation: () => void }) => void;
-}) {
-  const opacity = active ? 1 : 0.4;
-  const facade = palette["facade"] || "#8b6a45";
-  const trim = palette["trim"] || "#ddd8d0";
-  const glass = palette["glass"] || "#46536b";
-
-  return (
-    <group position={[0, y, 0]} onClick={onClick}>
-      {[-1, 1].map((side) => (
-        <group key={side} position={[0, 0, side * (WING_D / 2 + WING_GAP / 2)]}>
-          <mesh>
-            <boxGeometry args={[WING_W, FLOOR_H * 0.84, WING_D]} />
-            <meshStandardMaterial
-              color={facade}
-              emissive={active ? accentColor : "#000000"}
-              emissiveIntensity={active ? 0.08 : 0}
-              transparent
-              opacity={opacity}
-              roughness={0.7}
-              metalness={0.05}
-            />
-          </mesh>
-          {/* balcony glass band */}
-          <mesh position={[0, -FLOOR_H * 0.16, side * (WING_D / 2 + 0.03)]}>
-            <boxGeometry args={[WING_W * 0.94, FLOOR_H * 0.3, 0.07]} />
-            <meshStandardMaterial
-              color={glass}
-              transparent
-              opacity={opacity * 0.9}
-              roughness={0.25}
-              metalness={0.4}
-            />
-          </mesh>
-        </group>
-      ))}
-      {/* white circulation spine */}
-      <mesh>
-        <boxGeometry args={[WING_W * 0.34, FLOOR_H * 0.9, WING_GAP + WING_D]} />
-        <meshStandardMaterial color={trim} transparent opacity={opacity} roughness={0.8} />
-      </mesh>
-    </group>
-  );
+/** Real architectural tower model (uploaded GLB), measured + normalised once. */
+function useTowerModel(url: string) {
+  const { scene } = useGLTF(url);
+  return useMemo(() => {
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    return { scene, size, center, box };
+  }, [scene]);
 }
 
-function TowerMesh({
+/** Footprint of one tower in scene units after normalisation. */
+function useTowerDims(url: string, floors: number) {
+  const { size } = useTowerModel(url);
+  return useMemo(() => {
+    const targetH = PODIUM_H + floors * FLOOR_H + 0.9;
+    const scale = size.y > 0 ? targetH / size.y : 1;
+    return {
+      scale,
+      height: targetH,
+      width: size.x * scale,
+      depth: size.z * scale,
+    };
+  }, [size, floors]);
+}
+
+function GlbTower({
+  url,
   index,
   floors,
   active,
@@ -136,9 +108,8 @@ function TowerMesh({
   selectedFloor,
   onSelectTower,
   onSelectFloor,
-  palette,
-  accentColor,
 }: {
+  url: string;
   index: number;
   floors: number;
   active: boolean;
@@ -146,89 +117,68 @@ function TowerMesh({
   selectedFloor: number;
   onSelectTower: () => void;
   onSelectFloor: (floor: number) => void;
-  palette: Palette;
-  accentColor: string;
 }) {
   const site = layoutFor(index);
+  const { scene, size, center } = useTowerModel(url);
+  const dims = useTowerDims(url, floors);
+
+  const model = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const src = m.material as THREE.Material | THREE.Material[];
+      const apply = (mat: THREE.Material) => {
+        const c = mat.clone();
+        c.transparent = !active;
+        (c as THREE.MeshStandardMaterial).opacity = active ? 1 : 0.32;
+        return c;
+      };
+      m.material = Array.isArray(src) ? src.map(apply) : apply(src);
+      m.castShadow = false;
+      m.receiveShadow = false;
+    });
+    return clone;
+  }, [scene, active]);
+
+  useEffect(() => {
+    const target = model;
+    return () => {
+      target.traverse((o) => {
+        const m = o as THREE.Mesh;
+        const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
+        else mat?.dispose();
+      });
+    };
+  }, [model]);
+
   const slabs = useMemo(() => Array.from({ length: floors }, (_, i) => i + 1), [floors]);
-  const totalD = WING_D * 2 + WING_GAP;
-  const topY = PODIUM_H + floors * FLOOR_H;
-  const opacity = active ? 1 : 0.4;
 
   return (
     <group position={[site.x, 0, site.z]} rotation={[0, site.rot, 0]}>
-      {/* open ground-floor podium */}
-      <mesh
-        position={[0, PODIUM_H / 2, 0]}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelectTower();
-        }}
+      <group
+        scale={dims.scale}
+        position={[-center.x * dims.scale, -(center.y - size.y / 2) * dims.scale, -center.z * dims.scale]}
       >
-        <boxGeometry args={[WING_W + 0.9, PODIUM_H, totalD + 0.9]} />
-        <meshStandardMaterial
-          color={palette["podium"] || "#3a4460"}
-          transparent
-          opacity={opacity}
-          roughness={0.85}
-        />
-      </mesh>
+        <primitive object={model} />
+      </group>
 
-      {slabs.map((f) => {
-        const isSelected = active && f === selectedFloor;
-        // The selected floor is rendered as individual coloured unit blocks.
-        if (isSelected) return null;
-        return (
-          <FloorSlab
-            key={f}
-            y={PODIUM_H + (f - 0.5) * FLOOR_H}
-            active={active}
-            palette={palette}
-            accentColor={accentColor}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!active) onSelectTower();
-              else onSelectFloor(f);
-            }}
-          />
-        );
-      })}
-
-      {/* brown service core, taller than the slabs (lift / stair shaft) */}
-      <mesh position={[WING_W / 2 + 0.42, (topY + 0.9) / 2, 0]}>
-        <boxGeometry args={[1.5, topY + 0.9, totalD * 0.82]} />
-        <meshStandardMaterial
-          color={palette["core"] || "#4a352c"}
-          transparent
-          opacity={opacity}
-          roughness={0.8}
-        />
-      </mesh>
-
-      {/* roof slab + pergola canopy */}
-      <mesh position={[0, topY + 0.12, 0]}>
-        <boxGeometry args={[WING_W + 0.5, 0.22, totalD + 0.5]} />
-        <meshStandardMaterial color={palette["trim"] || "#ddd8d0"} transparent opacity={opacity} />
-      </mesh>
-      <mesh position={[0, topY + 0.85, 0]}>
-        <boxGeometry args={[WING_W + 0.2, 0.12, totalD + 0.2]} />
-        <meshStandardMaterial
-          color={palette["core"] || "#4a352c"}
-          transparent
-          opacity={opacity * 0.9}
-        />
-      </mesh>
-      {[-1, 1].map((sx) =>
-        [-1, 1].map((sz) => (
-          <mesh
-            key={`${sx}${sz}`}
-            position={[sx * (WING_W / 2 - 0.1), topY + 0.5, sz * (totalD / 2 - 0.1)]}
-          >
-            <boxGeometry args={[0.12, 0.75, 0.12]} />
-            <meshStandardMaterial color={palette["trim"] || "#ddd8d0"} transparent opacity={opacity} />
-          </mesh>
-        )),
-      )}
+      {/* Invisible per-floor hit volumes keep tower / floor selection working. */}
+      {slabs.map((f) => (
+        <mesh
+          key={f}
+          position={[0, PODIUM_H + (f - 0.5) * FLOOR_H, 0]}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!active) onSelectTower();
+            else onSelectFloor(f);
+          }}
+        >
+          <boxGeometry args={[dims.width * 1.03, FLOOR_H, dims.depth * 1.03]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      ))}
 
       <Html position={[0, -0.7, 0]} center distanceFactor={26}>
         <span
