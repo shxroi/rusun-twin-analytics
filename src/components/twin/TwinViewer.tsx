@@ -6,6 +6,7 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import { Button } from "@/components/ui/button";
+import towerModel from "@/assets/tower.glb.asset.json";
 import { cssColorToHex } from "@/lib/twin/color";
 import { CATEGORY_TOKEN } from "@/lib/twin/config";
 
@@ -194,13 +195,17 @@ function GlbTower({
 }
 
 function UnitBlocks({
+  url,
   towerIndex,
+  floors,
   floor,
   colorFor,
   selectedUnitId,
   onSelect,
 }: {
+  url: string;
   towerIndex: number;
+  floors: number;
   floor: number;
   colorFor: (c: EfficiencyCategory) => string;
   selectedUnitId: string | null;
@@ -212,6 +217,8 @@ function UnitBlocks({
     [twin.towerId, floor, twin.monthKey],
   );
   const site = layoutFor(towerIndex);
+  const dims = useTowerDims(url, floors);
+  const panelW = (dims.width / 3) * 0.9;
 
   return (
     <group
@@ -226,43 +233,27 @@ function UnitBlocks({
         return (
           <mesh
             key={s.unit.id}
-            position={[(col - 1) * (WING_W / 3), 0, row * (WING_D / 2 + WING_GAP / 2)]}
-            scale={selected ? 1.09 : 1}
+            position={[(col - 1) * (dims.width / 3), 0, row * (dims.depth / 2 + 0.12)]}
+            scale={selected ? 1.08 : 1}
             onClick={(e) => {
               e.stopPropagation();
               onSelect(s.unit.id);
             }}
           >
-            <boxGeometry args={[WING_W / 3 - 0.05, FLOOR_H * 0.9, WING_D]} />
+            <boxGeometry args={[panelW, FLOOR_H * 0.8, 0.22]} />
             <meshStandardMaterial
               color={colorFor(cat)}
               emissive={colorFor(cat)}
-              emissiveIntensity={selected ? 1.1 : 0.35}
-              roughness={0.4}
+              emissiveIntensity={selected ? 1.2 : 0.5}
+              transparent
+              opacity={0.92}
+              roughness={0.35}
             />
           </mesh>
         );
       })}
     </group>
   );
-}
-
-/** Optional web-optimized GLB layer — drop a URL in Settings to use a real model. */
-function GlbModel({ url }: { url: string }) {
-  const { scene } = useGLTF(url);
-  const cloned = useMemo(() => scene.clone(true), [scene]);
-  useEffect(() => {
-    return () => {
-      cloned.traverse((o) => {
-        const m = o as THREE.Mesh;
-        if (m.geometry) m.geometry.dispose();
-        const mat = m.material as THREE.Material | THREE.Material[] | undefined;
-        if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
-        else mat?.dispose();
-      });
-    };
-  }, [cloned]);
-  return <primitive object={cloned} />;
 }
 
 function Loading() {
@@ -276,6 +267,7 @@ function Loading() {
 }
 
 export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string }) {
+  const modelUrl = glbUrl || towerModel.url;
   const twin = useTwin();
   const towers = getTowers(twin.rusunId);
   const colors = useCategoryColors();
@@ -307,10 +299,10 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
         <gridHelper args={[90, 36, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
 
         <Suspense fallback={<Loading />}>
-          {glbUrl ? <GlbModel url={glbUrl} /> : null}
           {towers.map((t, i) => (
-            <TowerMesh
+            <GlbTower
               key={t.id}
+              url={modelUrl}
               index={i}
               floors={t.floors}
               label={t.name}
@@ -318,12 +310,12 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
               selectedFloor={twin.floor}
               onSelectTower={() => twin.setTowerId(t.id)}
               onSelectFloor={(f) => twin.setFloor(f)}
-              palette={colors}
-              accentColor={colors["accent"] || "#3b82f6"}
             />
           ))}
           <UnitBlocks
+            url={modelUrl}
             towerIndex={activeIndex}
+            floors={towers[activeIndex]?.floors ?? 10}
             floor={twin.floor}
             colorFor={colorFor}
             selectedUnitId={twin.unitId}
