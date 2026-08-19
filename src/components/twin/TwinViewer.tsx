@@ -6,6 +6,7 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import { Button } from "@/components/ui/button";
+import towerModel from "@/assets/tower.glb.asset.json";
 import { cssColorToHex } from "@/lib/twin/color";
 import { CATEGORY_TOKEN } from "@/lib/twin/config";
 
@@ -15,9 +16,6 @@ import type { EfficiencyCategory } from "@/lib/twin/types";
 
 const FLOOR_H = 0.9;
 const PODIUM_H = 0.95;
-const WING_W = 3.6;
-const WING_D = 1.35;
-const WING_GAP = 0.95; // circulation strip between the two wings
 
 /**
  * Site layout traced from the Rusun ASN 3 satellite reference: the towers sit
@@ -69,66 +67,36 @@ function useCategoryColors() {
   return colors;
 }
 
-type Palette = Record<string, string>;
-
-/** One residential floor: two wood-clad wings either side of a white core strip. */
-function FloorSlab({
-  y,
-  active,
-  palette,
-  accentColor,
-  onClick,
-}: {
-  y: number;
-  active: boolean;
-  palette: Palette;
-  accentColor: string;
-  onClick: (e: { stopPropagation: () => void }) => void;
-}) {
-  const opacity = active ? 1 : 0.4;
-  const facade = palette["facade"] || "#8b6a45";
-  const trim = palette["trim"] || "#ddd8d0";
-  const glass = palette["glass"] || "#46536b";
-
-  return (
-    <group position={[0, y, 0]} onClick={onClick}>
-      {[-1, 1].map((side) => (
-        <group key={side} position={[0, 0, side * (WING_D / 2 + WING_GAP / 2)]}>
-          <mesh>
-            <boxGeometry args={[WING_W, FLOOR_H * 0.84, WING_D]} />
-            <meshStandardMaterial
-              color={facade}
-              emissive={active ? accentColor : "#000000"}
-              emissiveIntensity={active ? 0.08 : 0}
-              transparent
-              opacity={opacity}
-              roughness={0.7}
-              metalness={0.05}
-            />
-          </mesh>
-          {/* balcony glass band */}
-          <mesh position={[0, -FLOOR_H * 0.16, side * (WING_D / 2 + 0.03)]}>
-            <boxGeometry args={[WING_W * 0.94, FLOOR_H * 0.3, 0.07]} />
-            <meshStandardMaterial
-              color={glass}
-              transparent
-              opacity={opacity * 0.9}
-              roughness={0.25}
-              metalness={0.4}
-            />
-          </mesh>
-        </group>
-      ))}
-      {/* white circulation spine */}
-      <mesh>
-        <boxGeometry args={[WING_W * 0.34, FLOOR_H * 0.9, WING_GAP + WING_D]} />
-        <meshStandardMaterial color={trim} transparent opacity={opacity} roughness={0.8} />
-      </mesh>
-    </group>
-  );
+/** Real architectural tower model (uploaded GLB), measured + normalised once. */
+function useTowerModel(url: string) {
+  const { scene } = useGLTF(url);
+  return useMemo(() => {
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    return { scene, size, center, box };
+  }, [scene]);
 }
 
-function TowerMesh({
+/** Footprint of one tower in scene units after normalisation. */
+function useTowerDims(url: string, floors: number) {
+  const { size } = useTowerModel(url);
+  return useMemo(() => {
+    const targetH = PODIUM_H + floors * FLOOR_H + 0.9;
+    const scale = size.y > 0 ? targetH / size.y : 1;
+    return {
+      scale,
+      height: targetH,
+      width: size.x * scale,
+      depth: size.z * scale,
+    };
+  }, [size, floors]);
+}
+
+function GlbTower({
+  url,
   index,
   floors,
   active,
@@ -136,9 +104,9 @@ function TowerMesh({
   selectedFloor,
   onSelectTower,
   onSelectFloor,
-  palette,
-  accentColor,
+  shellColor,
 }: {
+  url: string;
   index: number;
   floors: number;
   active: boolean;
@@ -146,89 +114,71 @@ function TowerMesh({
   selectedFloor: number;
   onSelectTower: () => void;
   onSelectFloor: (floor: number) => void;
-  palette: Palette;
-  accentColor: string;
+  shellColor: string;
 }) {
   const site = layoutFor(index);
+  const { scene, size, center } = useTowerModel(url);
+  const dims = useTowerDims(url, floors);
+
+  // Only the selected tower renders the full-detail model; the rest use a
+  // lightweight massing volume of identical dimensions so the site stays
+  // readable and the scene stays fast.
+  const model = useMemo(() => (active ? scene.clone(true) : null), [scene, active]);
+
+  useEffect(() => {
+    const target = model;
+    if (!target) return;
+    return () => {
+      target.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.geometry) m.geometry.dispose();
+      });
+    };
+  }, [model]);
+
   const slabs = useMemo(() => Array.from({ length: floors }, (_, i) => i + 1), [floors]);
-  const totalD = WING_D * 2 + WING_GAP;
-  const topY = PODIUM_H + floors * FLOOR_H;
-  const opacity = active ? 1 : 0.4;
 
   return (
     <group position={[site.x, 0, site.z]} rotation={[0, site.rot, 0]}>
-      {/* open ground-floor podium */}
-      <mesh
-        position={[0, PODIUM_H / 2, 0]}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelectTower();
-        }}
-      >
-        <boxGeometry args={[WING_W + 0.9, PODIUM_H, totalD + 0.9]} />
-        <meshStandardMaterial
-          color={palette["podium"] || "#3a4460"}
-          transparent
-          opacity={opacity}
-          roughness={0.85}
-        />
-      </mesh>
-
-      {slabs.map((f) => {
-        const isSelected = active && f === selectedFloor;
-        // The selected floor is rendered as individual coloured unit blocks.
-        if (isSelected) return null;
-        return (
-          <FloorSlab
-            key={f}
-            y={PODIUM_H + (f - 0.5) * FLOOR_H}
-            active={active}
-            palette={palette}
-            accentColor={accentColor}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!active) onSelectTower();
-              else onSelectFloor(f);
-            }}
+      {model ? (
+        <group
+          scale={dims.scale}
+          position={[
+            -center.x * dims.scale,
+            -(center.y - size.y / 2) * dims.scale,
+            -center.z * dims.scale,
+          ]}
+        >
+          <primitive object={model} />
+        </group>
+      ) : (
+        <mesh position={[0, dims.height / 2, 0]}>
+          <boxGeometry args={[dims.width, dims.height, dims.depth]} />
+          <meshStandardMaterial
+            color={shellColor}
+            transparent
+            opacity={0.42}
+            roughness={0.75}
           />
-        );
-      })}
-
-      {/* brown service core, taller than the slabs (lift / stair shaft) */}
-      <mesh position={[WING_W / 2 + 0.42, (topY + 0.9) / 2, 0]}>
-        <boxGeometry args={[1.5, topY + 0.9, totalD * 0.82]} />
-        <meshStandardMaterial
-          color={palette["core"] || "#4a352c"}
-          transparent
-          opacity={opacity}
-          roughness={0.8}
-        />
-      </mesh>
-
-      {/* roof slab + pergola canopy */}
-      <mesh position={[0, topY + 0.12, 0]}>
-        <boxGeometry args={[WING_W + 0.5, 0.22, totalD + 0.5]} />
-        <meshStandardMaterial color={palette["trim"] || "#ddd8d0"} transparent opacity={opacity} />
-      </mesh>
-      <mesh position={[0, topY + 0.85, 0]}>
-        <boxGeometry args={[WING_W + 0.2, 0.12, totalD + 0.2]} />
-        <meshStandardMaterial
-          color={palette["core"] || "#4a352c"}
-          transparent
-          opacity={opacity * 0.9}
-        />
-      </mesh>
-      {[-1, 1].map((sx) =>
-        [-1, 1].map((sz) => (
-          <mesh
-            key={`${sx}${sz}`}
-            position={[sx * (WING_W / 2 - 0.1), topY + 0.5, sz * (totalD / 2 - 0.1)]}
-          >
-            <boxGeometry args={[0.12, 0.75, 0.12]} />
-            <meshStandardMaterial color={palette["trim"] || "#ddd8d0"} transparent opacity={opacity} />
-          </mesh>
-        )),
+        </mesh>
       )}
+
+
+      {/* Invisible per-floor hit volumes keep tower / floor selection working. */}
+      {slabs.map((f) => (
+        <mesh
+          key={f}
+          position={[0, PODIUM_H + (f - 0.5) * FLOOR_H, 0]}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!active) onSelectTower();
+            else onSelectFloor(f);
+          }}
+        >
+          <boxGeometry args={[dims.width * 1.03, FLOOR_H, dims.depth * 1.03]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      ))}
 
       <Html position={[0, -0.7, 0]} center distanceFactor={26}>
         <span
@@ -244,13 +194,17 @@ function TowerMesh({
 }
 
 function UnitBlocks({
+  url,
   towerIndex,
+  floors,
   floor,
   colorFor,
   selectedUnitId,
   onSelect,
 }: {
+  url: string;
   towerIndex: number;
+  floors: number;
   floor: number;
   colorFor: (c: EfficiencyCategory) => string;
   selectedUnitId: string | null;
@@ -262,6 +216,8 @@ function UnitBlocks({
     [twin.towerId, floor, twin.monthKey],
   );
   const site = layoutFor(towerIndex);
+  const dims = useTowerDims(url, floors);
+  const panelW = (dims.width / 3) * 0.9;
 
   return (
     <group
@@ -276,43 +232,27 @@ function UnitBlocks({
         return (
           <mesh
             key={s.unit.id}
-            position={[(col - 1) * (WING_W / 3), 0, row * (WING_D / 2 + WING_GAP / 2)]}
-            scale={selected ? 1.09 : 1}
+            position={[(col - 1) * (dims.width / 3), 0, row * (dims.depth / 2 + 0.12)]}
+            scale={selected ? 1.08 : 1}
             onClick={(e) => {
               e.stopPropagation();
               onSelect(s.unit.id);
             }}
           >
-            <boxGeometry args={[WING_W / 3 - 0.05, FLOOR_H * 0.9, WING_D]} />
+            <boxGeometry args={[panelW, FLOOR_H * 0.8, 0.22]} />
             <meshStandardMaterial
               color={colorFor(cat)}
               emissive={colorFor(cat)}
-              emissiveIntensity={selected ? 1.1 : 0.35}
-              roughness={0.4}
+              emissiveIntensity={selected ? 1.2 : 0.5}
+              transparent
+              opacity={0.92}
+              roughness={0.35}
             />
           </mesh>
         );
       })}
     </group>
   );
-}
-
-/** Optional web-optimized GLB layer — drop a URL in Settings to use a real model. */
-function GlbModel({ url }: { url: string }) {
-  const { scene } = useGLTF(url);
-  const cloned = useMemo(() => scene.clone(true), [scene]);
-  useEffect(() => {
-    return () => {
-      cloned.traverse((o) => {
-        const m = o as THREE.Mesh;
-        if (m.geometry) m.geometry.dispose();
-        const mat = m.material as THREE.Material | THREE.Material[] | undefined;
-        if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
-        else mat?.dispose();
-      });
-    };
-  }, [cloned]);
-  return <primitive object={cloned} />;
 }
 
 function Loading() {
@@ -326,6 +266,7 @@ function Loading() {
 }
 
 export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string }) {
+  const modelUrl = glbUrl || towerModel.url;
   const twin = useTwin();
   const towers = getTowers(twin.rusunId);
   const colors = useCategoryColors();
@@ -357,10 +298,10 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
         <gridHelper args={[90, 36, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
 
         <Suspense fallback={<Loading />}>
-          {glbUrl ? <GlbModel url={glbUrl} /> : null}
           {towers.map((t, i) => (
-            <TowerMesh
+            <GlbTower
               key={t.id}
+              url={modelUrl}
               index={i}
               floors={t.floors}
               label={t.name}
@@ -368,12 +309,13 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
               selectedFloor={twin.floor}
               onSelectTower={() => twin.setTowerId(t.id)}
               onSelectFloor={(f) => twin.setFloor(f)}
-              palette={colors}
-              accentColor={colors["accent"] || "#3b82f6"}
+              shellColor={colors["base"] || "#2a3450"}
             />
           ))}
           <UnitBlocks
+            url={modelUrl}
             towerIndex={activeIndex}
+            floors={towers[activeIndex]?.floors ?? 10}
             floor={twin.floor}
             colorFor={colorFor}
             selectedUnitId={twin.unitId}
@@ -426,5 +368,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
     </div>
   );
 });
+
+useGLTF.preload(towerModel.url);
 
 export default TwinViewer;
