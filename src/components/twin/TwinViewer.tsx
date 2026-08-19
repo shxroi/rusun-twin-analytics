@@ -104,6 +104,7 @@ function GlbTower({
   selectedFloor,
   onSelectTower,
   onSelectFloor,
+  shellColor,
 }: {
   url: string;
   index: number;
@@ -113,6 +114,7 @@ function GlbTower({
   selectedFloor: number;
   onSelectTower: () => void;
   onSelectFloor: (floor: number) => void;
+  shellColor: string;
 }) {
   const site = layoutFor(index);
   const { scene, size, center } = useTowerModel(url);
@@ -307,6 +309,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
               selectedFloor={twin.floor}
               onSelectTower={() => twin.setTowerId(t.id)}
               onSelectFloor={(f) => twin.setFloor(f)}
+              shellColor={colors["base"] || "#2a3450"}
             />
           ))}
           <UnitBlocks
@@ -365,5 +368,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
     </div>
   );
 });
+
+useGLTF.preload(towerModel.url);
 
 export default TwinViewer;
