@@ -1,6 +1,6 @@
-import { OrbitControls, Html, useGLTF } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
-import { Maximize2, RotateCcw, Loader2 } from "lucide-react";
+import { OrbitControls, Html, useGLTF, Clone, AdaptiveDpr, BakeShadows } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Maximize2, RotateCcw, Loader2, Layers } from "lucide-react";
 import { Suspense, memo, useCallback, useMemo, useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -34,6 +34,11 @@ const SITE_LAYOUT: { x: number; z: number; rot: number }[] = [
 function layoutFor(i: number) {
   return SITE_LAYOUT[i % SITE_LAYOUT.length]!;
 }
+
+const SITE_VIEW = {
+  pos: new THREE.Vector3(48, 38, 66),
+  target: new THREE.Vector3(4, 5, 0),
+};
 
 /**
  * Category / material colors resolved from the CSS design tokens (no hardcoded
@@ -95,13 +100,53 @@ function useTowerDims(url: string, floors: number) {
   }, [size, floors]);
 }
 
+/**
+ * Smoothly flies the camera + orbit target to the focused tower (or back to the
+ * whole-site view). Frame-rate independent easing, and it parks itself when the
+ * move is finished so the renderer can idle.
+ */
+function CameraRig({
+  focus,
+  controls,
+}: {
+  focus: { pos: THREE.Vector3; target: THREE.Vector3 };
+  controls: React.RefObject<OrbitControlsImpl | null>;
+}) {
+  const { camera } = useThree();
+  const done = useRef(false);
+  const key = `${focus.pos.toArray().join()}|${focus.target.toArray().join()}`;
+
+  useEffect(() => {
+    done.current = false;
+  }, [key]);
+
+  useFrame((_, rawDelta) => {
+    if (done.current) return;
+    const dt = Math.min(rawDelta, 0.05);
+    const k = 1 - Math.exp(-4.5 * dt);
+    camera.position.lerp(focus.pos, k);
+    const c = controls.current;
+    if (c) {
+      c.target.lerp(focus.target, k);
+      c.update();
+    }
+    if (camera.position.distanceTo(focus.pos) < 0.05) {
+      camera.position.copy(focus.pos);
+      c?.target.copy(focus.target);
+      c?.update();
+      done.current = true;
+    }
+  });
+  return null;
+}
+
 function GlbTower({
   url,
   index,
   floors,
   active,
   label,
-  selectedFloor,
+  detailed,
   onSelectTower,
   onSelectFloor,
   shellColor,
@@ -111,7 +156,7 @@ function GlbTower({
   floors: number;
   active: boolean;
   label: string;
-  selectedFloor: number;
+  detailed: boolean;
   onSelectTower: () => void;
   onSelectFloor: (floor: number) => void;
   shellColor: string;
@@ -120,27 +165,13 @@ function GlbTower({
   const { scene, size, center } = useTowerModel(url);
   const dims = useTowerDims(url, floors);
 
-  // Only the selected tower renders the full-detail model; the rest use a
-  // lightweight massing volume of identical dimensions so the site stays
-  // readable and the scene stays fast.
-  const model = useMemo(() => (active ? scene.clone(true) : null), [scene, active]);
-
-  useEffect(() => {
-    const target = model;
-    if (!target) return;
-    return () => {
-      target.traverse((o) => {
-        const m = o as THREE.Mesh;
-        if (m.geometry) m.geometry.dispose();
-      });
-    };
-  }, [model]);
-
   const slabs = useMemo(() => Array.from({ length: floors }, (_, i) => i + 1), [floors]);
 
   return (
     <group position={[site.x, 0, site.z]} rotation={[0, site.rot, 0]}>
-      {model ? (
+      {detailed ? (
+        // <Clone> shares geometry + materials with the source GLB, so showing
+        // every tower costs draw calls but almost no extra memory.
         <group
           scale={dims.scale}
           position={[
@@ -149,20 +180,14 @@ function GlbTower({
             -center.z * dims.scale,
           ]}
         >
-          <primitive object={model} />
+          <Clone object={scene} />
         </group>
       ) : (
         <mesh position={[0, dims.height / 2, 0]}>
           <boxGeometry args={[dims.width, dims.height, dims.depth]} />
-          <meshStandardMaterial
-            color={shellColor}
-            transparent
-            opacity={0.42}
-            roughness={0.75}
-          />
+          <meshStandardMaterial color={shellColor} transparent opacity={0.42} roughness={0.75} />
         </mesh>
       )}
-
 
       {/* Invisible per-floor hit volumes keep tower / floor selection working. */}
       {slabs.map((f) => (
@@ -272,6 +297,8 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
   const colors = useCategoryColors();
   const controls = useRef<OrbitControlsImpl | null>(null);
   const wrapper = useRef<HTMLDivElement>(null);
+  // null = whole-site view (every tower visible); otherwise isolate one tower.
+  const [isolated, setIsolated] = useState<string | null>(null);
 
   const colorFor = useCallback(
     (c: EfficiencyCategory) => colors[CATEGORY_TOKEN[c]] || "#888888",
@@ -283,11 +310,38 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
     towers.findIndex((t) => t.id === twin.towerId),
   );
 
+  const focus = useMemo(() => {
+    if (!isolated) return SITE_VIEW;
+    const i = Math.max(
+      0,
+      towers.findIndex((t) => t.id === isolated),
+    );
+    const site = layoutFor(i);
+    const h = PODIUM_H + (towers[i]?.floors ?? 10) * FLOOR_H;
+    return {
+      target: new THREE.Vector3(site.x, h * 0.45, site.z),
+      pos: new THREE.Vector3(site.x + 14, h * 0.95, site.z + 16),
+    };
+  }, [isolated, towers]);
+
+  const handleSelectTower = useCallback(
+    (id: string) => {
+      twin.setTowerId(id);
+      setIsolated(id);
+    },
+    [twin],
+  );
+
+  const visibleTowers = isolated ? towers.filter((t) => t.id === isolated) : towers;
+
   return (
-    <div ref={wrapper} className="relative h-full w-full overflow-hidden rounded-xl bg-background/60">
+    <div
+      ref={wrapper}
+      className="relative h-full w-full overflow-hidden rounded-xl bg-background/60"
+    >
       <Canvas
-        camera={{ position: [48, 38, 66], fov: 34 }}
-        dpr={[1, 1.6]}
+        camera={{ position: SITE_VIEW.pos.toArray(), fov: 34 }}
+        dpr={[1, 1.5]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
         <color attach="background" args={["#0f1424"]} />
@@ -298,20 +352,23 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
         <gridHelper args={[90, 36, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
 
         <Suspense fallback={<Loading />}>
-          {towers.map((t, i) => (
-            <GlbTower
-              key={t.id}
-              url={modelUrl}
-              index={i}
-              floors={t.floors}
-              label={t.name}
-              active={t.id === twin.towerId}
-              selectedFloor={twin.floor}
-              onSelectTower={() => twin.setTowerId(t.id)}
-              onSelectFloor={(f) => twin.setFloor(f)}
-              shellColor={colors["base"] || "#2a3450"}
-            />
-          ))}
+          {visibleTowers.map((t) => {
+            const i = towers.findIndex((x) => x.id === t.id);
+            return (
+              <GlbTower
+                key={t.id}
+                url={modelUrl}
+                index={i}
+                floors={t.floors}
+                label={t.name}
+                active={t.id === twin.towerId}
+                detailed
+                onSelectTower={() => handleSelectTower(t.id)}
+                onSelectFloor={(f) => twin.setFloor(f)}
+                shellColor={colors["base"] || "#2a3450"}
+              />
+            );
+          })}
           <UnitBlocks
             url={modelUrl}
             towerIndex={activeIndex}
@@ -334,21 +391,39 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
           maxPolarAngle={Math.PI / 2.05}
           minDistance={6}
           maxDistance={110}
-          target={[4, 5, 0]}
+          target={SITE_VIEW.target.toArray()}
           makeDefault
         />
+        <CameraRig focus={focus} controls={controls} />
+        <AdaptiveDpr pixelated />
+        <BakeShadows />
       </Canvas>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3">
         <div className="pointer-events-auto rounded-lg border border-border bg-card/85 px-3 py-1.5 text-[11px] text-muted-foreground backdrop-blur">
-          Tata letak mengikuti koordinat site Rusun ASN 3 · klik tower → lantai → unit
+          {isolated
+            ? "Mode tower tunggal · klik lantai untuk memilih · Show all site untuk kembali"
+            : "Tata letak mengikuti koordinat site Rusun ASN 3 · klik tower untuk zoom"}
         </div>
         <div className="pointer-events-auto flex gap-1.5">
+          {isolated ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 bg-card/85"
+              onClick={() => setIsolated(null)}
+            >
+              <Layers className="size-3.5" /> Show all
+            </Button>
+          ) : null}
           <Button
             size="sm"
             variant="outline"
             className="h-8 bg-card/85"
-            onClick={() => controls.current?.reset()}
+            onClick={() => {
+              setIsolated(null);
+              controls.current?.reset();
+            }}
           >
             <RotateCcw className="size-3.5" /> Reset
           </Button>
