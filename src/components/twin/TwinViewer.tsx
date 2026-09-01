@@ -362,7 +362,9 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
                 floors={t.floors}
                 label={t.name}
                 active={t.id === twin.towerId}
-                detailed
+                // Only one full-detail GLB is in the scene at a time; the rest are
+                // cheap massing volumes. Keeps the site view fast on any GPU.
+                detailed={isolated ? t.id === isolated : t.id === twin.towerId}
                 onSelectTower={() => handleSelectTower(t.id)}
                 onSelectFloor={(f) => twin.setFloor(f)}
                 shellColor={colors["base"] || "#2a3450"}
