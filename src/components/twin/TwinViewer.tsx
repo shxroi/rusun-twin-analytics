@@ -383,8 +383,8 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
         </Suspense>
 
         {/* Local lighting only — no remote HDRI fetch (avoids CDN rate limits). */}
-        <hemisphereLight args={["#8fa8d8", "#0f1424", 0.55]} />
-        <pointLight position={[0, 16, 20]} intensity={40} distance={90} decay={2} />
+        <hemisphereLight args={["#8fa8d8", "#0f1424", 0.7]} />
+
 
         <OrbitControls
           ref={controls}
