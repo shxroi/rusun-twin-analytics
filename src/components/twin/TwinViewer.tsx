@@ -341,15 +341,15 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
     >
       <Canvas
         camera={{ position: SITE_VIEW.pos.toArray(), fov: 34 }}
-        dpr={[1, 1.5]}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        dpr={[0.8, 1.25]}
+        shadows={false}
+        gl={{ antialias: false, powerPreference: "high-performance", stencil: false, depth: true }}
       >
         <color attach="background" args={["#0f1424"]} />
         <fog attach="fog" args={["#0f1424", 70, 165]} />
-        <ambientLight intensity={0.34} />
-        <directionalLight position={[18, 26, 14]} intensity={0.8} />
-        <directionalLight position={[-16, 10, -18]} intensity={0.32} />
-        <gridHelper args={[90, 36, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[18, 26, 14]} intensity={0.9} />
+        <gridHelper args={[90, 18, "#243049", "#1a2236"]} position={[0, -0.02, 0]} />
 
         <Suspense fallback={<Loading />}>
           {visibleTowers.map((t) => {
