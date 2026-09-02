@@ -5,6 +5,8 @@ import { Suspense, memo, useCallback, useMemo, useRef, useState, useEffect } fro
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
+import "@/lib/twin/r3f-devtools-shim";
+
 import { Button } from "@/components/ui/button";
 import towerModel from "@/assets/tower.glb.asset.json";
 import { cssColorToHex } from "@/lib/twin/color";
