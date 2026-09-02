@@ -160,6 +160,7 @@ function GlbTower({
   onSelectTower: () => void;
   onSelectFloor: (floor: number) => void;
   shellColor: string;
+  bandColor: string;
 }) {
   const site = layoutFor(index);
   const { scene, size, center } = useTowerModel(url);
@@ -183,10 +184,33 @@ function GlbTower({
           <Clone object={scene} />
         </group>
       ) : (
-        <mesh position={[0, dims.height / 2, 0]}>
-          <boxGeometry args={[dims.width, dims.height, dims.depth]} />
-          <meshStandardMaterial color={shellColor} transparent opacity={0.42} roughness={0.75} />
-        </mesh>
+        // Cheap but clearly readable massing block: opaque shell, podium, roof cap
+        // and floor banding. ~8 draw calls per tower instead of the full GLB.
+        <group>
+          <mesh position={[0, PODIUM_H / 2, 0]}>
+            <boxGeometry args={[dims.width * 1.08, PODIUM_H, dims.depth * 1.12]} />
+            <meshStandardMaterial color={shellColor} roughness={0.9} />
+          </mesh>
+          <mesh position={[0, PODIUM_H + (dims.height - PODIUM_H) / 2, 0]}>
+            <boxGeometry args={[dims.width, dims.height - PODIUM_H, dims.depth]} />
+            <meshStandardMaterial color={shellColor} roughness={0.8} metalness={0.05} />
+          </mesh>
+          {Array.from({ length: Math.max(1, Math.floor(floors / 2)) }, (_, i) => (
+            <mesh key={i} position={[0, PODIUM_H + (i * 2 + 1) * FLOOR_H, 0]}>
+              <boxGeometry args={[dims.width * 1.015, FLOOR_H * 0.28, dims.depth * 1.015]} />
+              <meshStandardMaterial
+                color={bandColor}
+                emissive={bandColor}
+                emissiveIntensity={0.25}
+                roughness={0.5}
+              />
+            </mesh>
+          ))}
+          <mesh position={[0, dims.height + 0.08, 0]}>
+            <boxGeometry args={[dims.width * 1.06, 0.16, dims.depth * 1.06]} />
+            <meshStandardMaterial color={bandColor} roughness={0.6} />
+          </mesh>
+        </group>
       )}
 
       {/* Invisible per-floor hit volumes keep tower / floor selection working. */}
