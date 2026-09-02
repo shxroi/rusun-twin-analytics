@@ -150,6 +150,7 @@ function GlbTower({
   onSelectTower,
   onSelectFloor,
   shellColor,
+  bandColor,
 }: {
   url: string;
   index: number;
@@ -392,6 +393,7 @@ export const TwinViewer = memo(function TwinViewer({ glbUrl }: { glbUrl?: string
                 onSelectTower={() => handleSelectTower(t.id)}
                 onSelectFloor={(f) => twin.setFloor(f)}
                 shellColor={colors["base"] || "#2a3450"}
+                bandColor={colors["trim"] || "#c9d3ea"}
               />
             );
           })}
