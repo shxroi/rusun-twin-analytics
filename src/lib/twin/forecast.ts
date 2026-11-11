@@ -22,6 +22,8 @@ export interface ForecastRequest {
   endpoint?: string;
 }
 
+const DEFAULT_ENDPOINT = "http://127.0.0.1:8000/api/forecast";
+
 const MODEL_NAME = "LSTM-baseline (mock)";
 
 function addDays(date: string, days: number) {
@@ -91,14 +93,18 @@ async function runForecast(
   const readings = aggregateSeries(req.unitIds, req.monthKey);
   const hist = history(readings, metric);
 
-  if (req.endpoint) {
-    // Real model path (kept here so the UI never changes when it goes live).
-    const res = await fetch(req.endpoint, {
+  const endpoint = req.endpoint ?? import.meta.env.VITE_INTELLIGENCE_API_URL ?? DEFAULT_ENDPOINT;
+  if (endpoint) {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...req, metric }),
     });
-    if (res.ok) return (await res.json()) as ForecastResult;
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`Forecast API returned ${res.status}: ${detail || res.statusText}`);
+    }
+    return (await res.json()) as ForecastResult;
   }
 
   const forecast = project(hist, horizonDays);

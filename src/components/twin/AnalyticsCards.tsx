@@ -227,9 +227,8 @@ export function TwinStatusCard() {
         ))}
       </div>
       <p className="mt-3 rounded-lg bg-background/50 p-2 text-[10px] leading-relaxed text-muted-foreground">
-        Smart metering data → analytical twin. Forecast dan anomaly service memakai baseline mock,
-        siap diarahkan ke endpoint LSTM melalui <code>forecastElectricity()</code> /{" "}
-        <code>forecastWater()</code>.
+        Smart metering data → analytical twin. Forecast memakai intelligence API; anomaly data will
+        use the same Supabase-backed service.
       </p>
     </section>
   );

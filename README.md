@@ -2,6 +2,58 @@
 
 Rusun ASN IKN — Smart Metering Predictive Digital Twin Dashboard
 
+## Intelligence API connection
+
+The Analytics page uses the NusaWatt intelligence API for the real catalog and
+forecast data. Copy `.env.example` to `.env` and set
+`VITE_INTELLIGENCE_API_URL` to the running API's `/api/forecast` URL. The API
+process owns the Supabase connection; do not put `SUPABASE_DB_URL` or a secret
+key in this frontend.
+
+Start the intelligence API from `rusun-intelligence` after training and
+forecasting a run:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.forecast_api:app --host 127.0.0.1 --port 8000
+```
+
+## Project status
+
+The 3D Digital Twin viewer now uses a procedural Three.js tower instead of a
+heavy GLB asset. The tower is generated in code from a traced floor-plan
+outline and shared across all six towers, which keeps the viewer lightweight
+while preserving the real model's footprint, floor elevations, and three
+lightwell openings.
+
+The current procedural model contains:
+
+- A podium from 0 to 10.67 m
+- Ten 3.6 m residential floors
+- A roof slab and 1.1 m parapet
+- Cream slab-edge bands at every floor
+- Generic window panes along the exterior and lightwell edges
+- Five shared meshes/material groups, approximately 3.6k triangles and five
+  draw calls
+
+This is a stylized analytical model, not a fully detailed architectural
+replacement. Staggered balconies, open corridors, and roof pergola frames are
+not represented. The floor-plan outline and floor heights are traced from the
+original model, while window positions use an assumed 3 m bay spacing.
+
+### Procedural tower files
+
+- [`src/components/twin/ProceduralTower.tsx`](src/components/twin/ProceduralTower.tsx)
+  creates the reusable meshes and materials.
+- [`src/lib/twin/towerGeometry.ts`](src/lib/twin/towerGeometry.ts) builds and
+  caches the geometry.
+- [`src/lib/twin/towerShape.ts`](src/lib/twin/towerShape.ts) contains the
+  traced footprint, podium, slab bands, parapet, and lightwell holes.
+- [`src/lib/twin/towerModel.ts`](src/lib/twin/towerModel.ts) defines model
+  dimensions and floor-selection helpers.
+- [`scripts/trace-footprint.py`](scripts/trace-footprint.py) can regenerate
+  `towerShape.ts` from a dumped copy of another model. See the script header
+  for the expected input format and Python dependencies.
+
 Project Context
 
 I have an existing Smart Metering Dashboard for Rusun ASN in IKN Nusantara.
@@ -142,7 +194,13 @@ Create a large central panel titled:
 
 "3D Digital Twin — Rusun ASN 3"
 
-Load the provided GLB building model into an interactive 3D viewer.
+Render the procedural Three.js tower model in an interactive 3D viewer.
+
+The geometry and materials are created once and shared by all six towers. The
+active tower is shown in full color while inactive towers are dimmed. Edit the
+hex values at the top of
+[`src/components/twin/ProceduralTower.tsx`](src/components/twin/ProceduralTower.tsx)
+to restyle the building; no model export or asset regeneration is required.
 
 Use Three.js / React Three Fiber if appropriate.
 
@@ -622,29 +680,19 @@ The 3D model and floor plan must behave as two synchronized spatial representati
 
 19. Performance
 
-The provided building model may be very high-poly.
+The viewer uses a low-poly procedural model rather than loading the original
+high-poly asset. Geometry is cached and shared between towers, materials are
+shared between active and dimmed states, and the canvas uses on-demand
+rendering so the GPU can idle when the scene is unchanged.
 
-Do not assume the original model is optimized for web rendering.
+Keep the following behavior when extending the viewer:
 
-Implement the 3D viewer in a way that supports a web-optimized GLB.
-
-Use:
-
-Lazy loading
-
-Loading indicator
-
-Suspense
-
-Proper disposal of Three.js resources
-
-Efficient rendering
-
-Avoid unnecessary re-renders
-
-If the original model is too heavy, make the architecture ready for a lower-poly optimized GLB replacement.
-
-Do not remove the 3D functionality simply because the model is large.
+- Use `Suspense` and a loading indicator for scene content.
+- Avoid duplicating geometry or materials per tower.
+- Dispose resources only when they are not shared by another tower.
+- Avoid unnecessary React re-renders.
+- Keep tower selection and floor highlighting synchronized with the
+  smart-metering state.
 
 20. Responsive Design
 
@@ -733,6 +781,26 @@ Prefer working locally? You need Node.js and npm — [install with nvm](https://
 ```sh
 git clone <this-repository-url>
 cd <repository-name>
-npm i
+npm install
 npm run dev
+```
+
+### Validation
+
+Run the production checks before submitting changes:
+
+```sh
+npx tsc --noEmit
+npm run lint
+npm run build
+```
+
+The targeted tower integration files can be linted independently:
+
+```sh
+npx eslint src/components/twin/ProceduralTower.tsx \
+  src/components/twin/TwinViewer.tsx \
+  src/lib/twin/towerGeometry.ts \
+  src/lib/twin/towerModel.ts \
+  src/lib/twin/towerShape.ts
 ```

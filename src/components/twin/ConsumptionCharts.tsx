@@ -11,6 +11,8 @@ import {
 } from "recharts";
 
 import { useTwin } from "@/lib/twin/store";
+import { useTwinCatalog } from "@/lib/twin/api";
+import { getUnit } from "@/lib/twin/data";
 import { forecastCost, forecastElectricity, forecastWater } from "@/lib/twin/forecast";
 import { dayOf, nf, rp, shortDate } from "@/lib/twin/format";
 import type { ForecastResult } from "@/lib/twin/types";
@@ -26,17 +28,26 @@ const META: Record<ChartKind, { title: string; color: string; unit: string }> = 
 
 export function useForecast(kind: ChartKind, unitIds: string[]) {
   const twin = useTwin();
+  const catalog = useTwinCatalog(twin.rusunId.replace(/\D/g, "") || "3");
+  const selectedTowerIds = new Set(
+    unitIds.map((id) => getUnit(id)?.towerId).filter((id): id is string => Boolean(id)),
+  );
+  const realUnitIds = catalog.data
+    ? catalog.data.units
+        .filter((unit) => selectedTowerIds.size <= 1 || selectedTowerIds.has(unit.towerId))
+        .map((unit) => unit.code)
+    : [];
   return useQuery<ForecastResult>({
     queryKey: [
       "forecast",
       kind,
       twin.monthKey,
       twin.forecastHorizon,
-      unitIds.length,
-      unitIds[0] ?? "none",
+      realUnitIds.join(","),
     ],
+    enabled: Boolean(catalog.data),
     queryFn: () => {
-      const req = { unitIds, monthKey: twin.monthKey, horizonDays: twin.forecastHorizon };
+      const req = { unitIds: realUnitIds, monthKey: twin.monthKey, horizonDays: twin.forecastHorizon };
       if (kind === "water") return forecastWater(req);
       if (kind === "cost") return forecastCost(req, twin.tariff);
       return forecastElectricity(req);
