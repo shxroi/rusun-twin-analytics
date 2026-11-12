@@ -14,15 +14,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_LABEL, CATEGORY_TOKEN } from "@/lib/twin/config";
-import {
-  getTower,
-  getUnitIntervalSeries,
-  getUnitResidents,
-  getUnitSeries,
-  getUnitSummary,
-} from "@/lib/twin/data";
+import { getUnitResidents } from "@/lib/twin/data";
 import { forecastUnitNextDay } from "@/lib/twin/forecast";
 import { dayOf, nf, rp } from "@/lib/twin/format";
+import { useCatalogUnits, useUnitSeries, useUnitSummaries } from "@/lib/twin/server";
 import { useTwin } from "@/lib/twin/store";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +26,12 @@ type View = "5min" | "daily" | "monthly";
 export function UnitDetailPanel() {
   const twin = useTwin();
   const [view, setView] = useState<View>("daily");
-  const summary = twin.unitId ? getUnitSummary(twin.unitId, twin.monthKey, twin.tariff) : null;
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+  const selected = twin.unitId ? units.find((u) => u.id === twin.unitId) : undefined;
+
+  const { summaries } = useUnitSummaries(rusun, twin.monthKey, units, { towerId: twin.towerId });
+  const summary = summaries.find((s) => s.unit.id === twin.unitId) ?? null;
 
   const forecast = useQuery({
     queryKey: ["unit-forecast", twin.unitId, twin.monthKey],
@@ -39,7 +39,10 @@ export function UnitDetailPanel() {
     enabled: !!twin.unitId,
   });
 
-  if (!summary) {
+  const series = useUnitSeries(rusun, twin.monthKey, twin.unitId ?? "");
+  const daily = selected ? series.readings : [];
+
+  if (!summary || !selected) {
     return (
       <section className="panel flex min-h-[220px] flex-col items-center justify-center gap-2 p-6 text-center">
         <Activity className="size-5 text-muted-foreground" />
@@ -52,25 +55,24 @@ export function UnitDetailPanel() {
   }
 
   const { unit } = summary;
-  const tower = getTower(unit.towerId);
   const residents = getUnitResidents(unit.id);
-  const daily = getUnitSeries(unit.id, twin.monthKey);
   const lastDate = daily[daily.length - 1]?.date ?? `${twin.monthKey}-01`;
-  const interval = view === "5min" ? getUnitIntervalSeries(unit.id, lastDate) : [];
 
   const chartData =
-    view === "5min"
-      ? interval.filter((_, i) => i % 3 === 0).map((d) => ({ label: d.timestamp, electricity: d.electricity, water: d.water }))
-      : view === "daily"
-        ? daily.map((d) => ({ label: String(dayOf(d.date)), electricity: d.electricity, water: d.water }))
-        : Array.from({ length: 4 }, (_, w) => {
-            const slice = daily.slice(w * 7, w * 7 + 7);
-            return {
-              label: `W${w + 1}`,
-              electricity: +slice.reduce((a, d) => a + d.electricity, 0).toFixed(1),
-              water: +slice.reduce((a, d) => a + d.water, 0).toFixed(2),
-            };
-          });
+    view === "daily"
+      ? daily.map((d) => ({
+          label: String(dayOf(d.date)),
+          electricity: d.electricity,
+          water: d.water,
+        }))
+      : Array.from({ length: 4 }, (_, w) => {
+          const slice = daily.slice(w * 7, w * 7 + 7);
+          return {
+            label: `W${w + 1}`,
+            electricity: +slice.reduce((a, d) => a + d.electricity, 0).toFixed(1),
+            water: +slice.reduce((a, d) => a + d.water, 0).toFixed(2),
+          };
+        });
 
   const todayElec = daily[daily.length - 1]?.electricity ?? 0;
   const prevElec = daily[daily.length - 2]?.electricity ?? todayElec;
@@ -94,18 +96,33 @@ export function UnitDetailPanel() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            {tower?.name} · Floor {unit.floor} · Unit {unit.slot} · {unit.type} · {unit.residents}{" "}
-            residents · updated {twin.refreshedAt}
+            {unit.code} · Floor {unit.floor} · Unit {unit.slot} · {unit.type} · updated{" "}
+            {twin.refreshedAt}
           </p>
         </div>
-        <Button size="icon" variant="ghost" className="size-7" onClick={() => twin.selectUnit(null)}>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-7"
+          onClick={() => twin.selectUnit(null)}
+        >
           <X className="size-4" />
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <Mini label="Total Electricity" value={`${nf(summary.totalElectricity)} kWh`} icon={Zap} tone="elec" />
-        <Mini label="Total Water" value={`${nf(summary.totalWater, 2)} m³`} icon={Droplets} tone="water" />
+        <Mini
+          label="Total Electricity"
+          value={`${nf(summary.totalElectricity)} kWh`}
+          icon={Zap}
+          tone="elec"
+        />
+        <Mini
+          label="Total Water"
+          value={`${nf(summary.totalWater, 2)} m³`}
+          icon={Droplets}
+          tone="water"
+        />
         <Mini label="Electricity Cost" value={rp(summary.cost)} icon={Wallet} tone="cost" />
         <Mini
           label="Avg / Day"
@@ -116,21 +133,22 @@ export function UnitDetailPanel() {
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-xs">
-        <Trend label="Electricity Today" value={`${nf(todayElec, 2)} kWh`} delta={todayElec - prevElec} />
+        <Trend
+          label="Electricity Today"
+          value={`${nf(todayElec, 2)} kWh`}
+          delta={todayElec - prevElec}
+        />
         <Trend label="Water Today" value={`${nf(todayWater, 2)} m³`} delta={0} />
         <Trend
           label="Forecast Tomorrow"
           value={forecast.data?.electricity ? `${nf(forecast.data.electricity.value, 2)} kWh` : "—"}
-          delta={
-            forecast.data?.electricity ? forecast.data.electricity.value - todayElec : 0
-          }
+          delta={forecast.data?.electricity ? forecast.data.electricity.value - todayElec : 0}
         />
       </div>
 
       <div className="flex items-center gap-1 rounded-lg border border-border bg-background/40 p-1 text-xs">
         {(
           [
-            ["5min", "View 5-Minute Data"],
             ["daily", "View Daily Data"],
             ["monthly", "View Monthly Data"],
           ] as [View, string][]
@@ -158,7 +176,10 @@ export function UnitDetailPanel() {
               stroke="var(--border)"
               interval="preserveStartEnd"
             />
-            <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
+            <YAxis
+              tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+              stroke="var(--border)"
+            />
             <Tooltip
               contentStyle={{
                 background: "var(--card)",
@@ -187,9 +208,14 @@ export function UnitDetailPanel() {
         </ResponsiveContainer>
       </div>
 
+      <p className="text-[11px] text-muted-foreground">
+        Last reading {lastDate} · 5-minute interval view is unavailable (internal database stores
+        daily usage only).
+      </p>
+
       <div>
         <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-          Residents ({residents.length})
+          Residents ({residents.length}) <span className="text-[10px]">· illustrative</span>
         </p>
         <div className="overflow-hidden rounded-lg border border-border/70">
           <table className="w-full text-[11px]">

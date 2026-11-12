@@ -2,7 +2,8 @@ import { ClientOnly } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { Suspense, lazy } from "react";
 
-import { getRusun, getTower } from "@/lib/twin/data";
+import { useCatalogUnits } from "@/lib/twin/server";
+import { RUSUN_LIST } from "@/lib/twin/data";
 import { useTwin } from "@/lib/twin/store";
 import { FloorSelector } from "./FloorSelector";
 
@@ -20,16 +21,20 @@ function ViewerFallback() {
 
 export function TwinCanvasPanel({ height = 520 }: { height?: number }) {
   const twin = useTwin();
-  const rusun = getRusun(twin.rusunId);
-  const tower = getTower(twin.towerId);
+  const rusun = RUSUN_LIST.find((r) => r.id === twin.rusunId);
+  const rusunNum = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusunNum);
+  const tower = units.find((u) => u.towerId === twin.towerId);
 
   return (
     <section className="panel p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold">3D Digital Twin — {rusun.name}</h2>
+          <h2 className="text-base font-semibold">
+            3D Digital Twin — {rusun?.name ?? twin.rusunId}
+          </h2>
           <p className="text-xs text-muted-foreground">
-            {tower?.name} · Floor {twin.floor}
+            {tower?.name ?? twin.towerId} · Floor {twin.floor}
             {twin.unitId ? " · unit selected" : ""} · spatial representation of the smart-metering
             data
           </p>

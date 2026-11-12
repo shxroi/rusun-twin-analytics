@@ -1,15 +1,11 @@
-import { DEFAULT_TARIFF, CATEGORY_LABEL, type TariffConfig } from "./config";
-import {
-  getRusun,
-  getRusunUnits,
-  getTower,
-  getUnitSummary,
-  getUnits,
-} from "./data";
+import { CATEGORY_LABEL, type TariffConfig } from "./config";
+import type { UnitSummary } from "./types";
 
 function download(filename: string, rows: (string | number)[][]) {
-  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+  const csv = rows
+    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([`${csv}`], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -18,22 +14,23 @@ function download(filename: string, rows: (string | number)[][]) {
   URL.revokeObjectURL(url);
 }
 
-/** Unit-level CSV export for a rusun or a single tower. */
+/**
+ * Unit-level CSV export. Takes pre-joined UnitSummary rows (real Supabase data via
+ * useUnitSummaries) plus the tower name, so it no longer depends on the mock layer.
+ */
 export function exportScopeCsv(
-  rusunId: string,
   monthKey: string,
-  towerId?: string,
-  tariff: TariffConfig = DEFAULT_TARIFF,
+  rows: UnitSummary[],
+  towerName: string | undefined,
+  tariff: TariffConfig,
+  filename?: string,
 ) {
-  const units = towerId ? getUnits(towerId) : getRusunUnits(rusunId);
-  const rows: (string | number)[][] = [
+  const out: (string | number)[][] = [
     [
-      "rusun",
       "tower",
       "floor",
       "unit",
       "type",
-      "residents",
       "electricity_kwh",
       "water_m3",
       "avg_kwh_day",
@@ -43,16 +40,12 @@ export function exportScopeCsv(
       "kategori_air",
     ],
   ];
-  for (const u of units) {
-    const s = getUnitSummary(u.id, monthKey, tariff);
-    if (!s) continue;
-    rows.push([
-      getRusun(rusunId).name,
-      getTower(u.towerId)?.name ?? u.towerId,
-      u.floor,
-      u.code,
-      u.type,
-      u.residents,
+  for (const s of rows) {
+    out.push([
+      towerName ?? s.unit.towerId,
+      s.unit.floor,
+      s.unit.code,
+      s.unit.type,
       s.totalElectricity.toFixed(2),
       s.totalWater.toFixed(3),
       s.avgElectricity.toFixed(2),
@@ -62,7 +55,8 @@ export function exportScopeCsv(
       CATEGORY_LABEL[s.waterCategory],
     ]);
   }
-  download(`smart-metering-${towerId ?? rusunId}-${monthKey}.csv`, rows);
+  const name = filename ?? `smart-metering-${towerName ?? "rusun"}-${monthKey}.csv`;
+  download(name, out);
 }
 
 export function exportRows(filename: string, rows: (string | number)[][]) {

@@ -7,7 +7,7 @@ import { PageShell } from "@/components/twin/PageShell";
 import { ScopeStatCards } from "@/components/twin/StatCards";
 import { TowerSelector } from "@/components/twin/TowerSelector";
 import { UnitDetailPanel } from "@/components/twin/UnitDetailPanel";
-import { getScopeTotals, getTower, getUnits } from "@/lib/twin/data";
+import { useCatalogUnits, useSummary } from "@/lib/twin/server";
 import { useTwin } from "@/lib/twin/store";
 
 export const Route = createFileRoute("/towers")({
@@ -31,20 +31,22 @@ export const Route = createFileRoute("/towers")({
 
 function TowersPage() {
   const twin = useTwin();
-  const tower = getTower(twin.towerId);
-  const totals = getScopeTotals(twin.rusunId, twin.monthKey, twin.towerId, twin.tariff);
-  const unitIds = getUnits(twin.towerId).map((u) => u.id);
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+  const { data } = useSummary(rusun, twin.monthKey, { towerId: twin.towerId });
+  const towerName = data?.towers.find((t) => t.towerId === twin.towerId)?.name;
+  const unitIds = units.filter((u) => u.towerId === twin.towerId).map((u) => u.code);
 
   return (
-    <PageShell title={tower?.name ?? "Tower"} subtitle="Tower-level consumption & efficiency">
+    <PageShell title={towerName ?? "Tower"} subtitle="Tower-level consumption & efficiency">
       <TowerSelector />
-      <ScopeStatCards totals={totals} peak />
+      <ScopeStatCards towerId={twin.towerId} />
       <div className="grid gap-3 xl:grid-cols-[1.4fr_1fr]">
         <FloorPlanHeatmap />
         <UnitDetailPanel />
       </div>
       <SyncedCharts unitIds={unitIds} />
-      <AnomalyPanel unitIds={unitIds} />
+      <AnomalyPanel />
     </PageShell>
   );
 }

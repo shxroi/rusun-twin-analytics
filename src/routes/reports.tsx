@@ -7,9 +7,10 @@ import { PageShell } from "@/components/twin/PageShell";
 import { ScopeStatCards } from "@/components/twin/StatCards";
 import { TowerSelector } from "@/components/twin/TowerSelector";
 import { UnitList } from "@/components/twin/UnitList";
-import { getScopeTotals, getTower, getTowerComparison, monthLabel } from "@/lib/twin/data";
+import { monthLabel } from "@/lib/twin/data";
 import { exportRows, exportScopeCsv } from "@/lib/twin/export";
 import { nf, rp } from "@/lib/twin/format";
+import { useCatalogUnits, useSummary, useUnitSummaries } from "@/lib/twin/server";
 import { useTwin } from "@/lib/twin/store";
 
 export const Route = createFileRoute("/reports")({
@@ -33,12 +34,23 @@ export const Route = createFileRoute("/reports")({
 
 function ReportsPage() {
   const twin = useTwin();
-  const totals = getScopeTotals(twin.rusunId, twin.monthKey, undefined, twin.tariff);
-  const comparison = getTowerComparison(twin.rusunId, twin.monthKey);
-  const tower = getTower(twin.towerId);
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+  const { data } = useSummary(rusun, twin.monthKey);
+  const { summaries } = useUnitSummaries(rusun, twin.monthKey, units);
+
+  const comparison = (data?.towers ?? []).map((t) => ({
+    towerId: t.towerId,
+    name: t.name,
+    electricity: t.electricity,
+    water: t.water,
+  }));
+  const towerName = data?.towers.find((t) => t.towerId === twin.towerId)?.name;
+  const totals = data?.totals;
+  const cost = totals ? totals.electricity * twin.tariff.electricityRpPerKwh : 0;
 
   const exportTowerSummary = () => {
-    exportRows(`tower-summary-${twin.rusunId}-${twin.monthKey}.csv`, [
+    exportRows(`tower-summary-${rusun}-${twin.monthKey}.csv`, [
       ["tower", "electricity_kwh", "water_m3"],
       ...comparison.map((c) => [c.name, c.electricity.toFixed(2), c.water.toFixed(3)]),
     ]);
@@ -47,12 +59,12 @@ function ReportsPage() {
 
   return (
     <PageShell title="Reports" subtitle={`Period ${monthLabel(twin.monthKey)}`}>
-      <ScopeStatCards totals={totals} />
+      <ScopeStatCards />
       <section className="panel flex flex-wrap items-center gap-2 p-4">
         <Button
           size="sm"
           onClick={() => {
-            exportScopeCsv(twin.rusunId, twin.monthKey, undefined, twin.tariff);
+            exportScopeCsv(twin.monthKey, summaries, towerName, twin.tariff);
             toast.success("Rusun unit report exported");
           }}
         >
@@ -62,17 +74,19 @@ function ReportsPage() {
           size="sm"
           variant="secondary"
           onClick={() => {
-            exportScopeCsv(twin.rusunId, twin.monthKey, twin.towerId, twin.tariff);
-            toast.success(`${tower?.name} report exported`);
+            const towerUnits = summaries.filter((s) => s.unit.towerId === twin.towerId);
+            exportScopeCsv(twin.monthKey, towerUnits, towerName, twin.tariff);
+            toast.success(`${towerName ?? "Tower"} report exported`);
           }}
         >
-          <Download className="size-4" /> {tower?.name} units
+          <Download className="size-4" /> {towerName ?? "Tower"} units
         </Button>
         <Button size="sm" variant="outline" onClick={exportTowerSummary}>
           <FileSpreadsheet className="size-4" /> Tower summary
         </Button>
         <p className="ml-auto text-[11px] text-muted-foreground">
-          Total {nf(totals.electricity)} kWh · {nf(totals.water, 0)} m³ · {rp(totals.cost)}
+          Total {totals ? nf(totals.electricity) : "…"} kWh · {totals ? nf(totals.water, 0) : "…"}{" "}
+          m³ · {totals ? rp(cost) : "…"}
         </p>
       </section>
       <TowerSelector />

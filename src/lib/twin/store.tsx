@@ -9,7 +9,8 @@ import {
 } from "react";
 
 import { DEFAULT_TARIFF, TARIFF_STORAGE_KEY, type TariffConfig } from "./config";
-import { RUSUN_LIST, getTowers } from "./data";
+import { RUSUN_LIST } from "./data";
+import { useTwinCatalog } from "./api";
 import type { Granularity, HeatmapDimension, MetricMode } from "./types";
 
 interface TwinState {
@@ -47,12 +48,20 @@ export function TwinProvider({ children }: { children: ReactNode }) {
   const [metricMode, setMetricMode] = useState<MetricMode>("both");
   const [heatmapDim, setHeatmapDim] = useState<HeatmapDimension>("electricity");
   const [granularity, setGranularity] = useState<Granularity>("daily");
-  const [towerId, setTowerIdRaw] = useState(getTowers(RUSUN_LIST[0]!.id)[0]!.id);
+  const [towerId, setTowerIdRaw] = useState("");
   const [floor, setFloor] = useState(10);
   const [unitId, setUnitId] = useState<string | null>(null);
   const [tariff, setTariffRaw] = useState<TariffConfig>(DEFAULT_TARIFF);
   const [forecastHorizon, setForecastHorizon] = useState(7);
   const [refreshedAt, setRefreshedAt] = useState("—");
+  const catalog = useTwinCatalog(rusunId.replace(/\D/g, "") || "3");
+
+  // Pick the first tower once the catalog arrives (and reset when rusun changes).
+  useEffect(() => {
+    if (towerId) return;
+    const first = catalog.data?.towers[0]?.id;
+    if (first) setTowerIdRaw(first);
+  }, [catalog.data, towerId]);
 
   useEffect(() => {
     setRefreshedAt(new Date().toLocaleString("en-GB"));
@@ -75,7 +84,7 @@ export function TwinProvider({ children }: { children: ReactNode }) {
 
   const setRusunId = useCallback((id: string) => {
     setRusunIdRaw(id);
-    setTowerIdRaw(getTowers(id)[0]!.id);
+    setTowerIdRaw("");
     setUnitId(null);
   }, []);
 

@@ -5,7 +5,7 @@ import { PageShell } from "@/components/twin/PageShell";
 import { TowerSelector } from "@/components/twin/TowerSelector";
 import { TwinCanvasPanel } from "@/components/twin/TwinCanvasPanel";
 import { UnitDetailPanel } from "@/components/twin/UnitDetailPanel";
-import { getUnits } from "@/lib/twin/data";
+import { useCatalogUnits } from "@/lib/twin/server";
 import { useTwin } from "@/lib/twin/store";
 
 export const Route = createFileRoute("/twin")({
@@ -29,7 +29,9 @@ export const Route = createFileRoute("/twin")({
 
 function TwinPage() {
   const twin = useTwin();
-  const unitIds = getUnits(twin.towerId).map((u) => u.id);
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+  const unitIds = units.filter((u) => u.towerId === twin.towerId).map((u) => u.code);
 
   return (
     <PageShell title="3D Digital Twin" subtitle="Spatial view synchronised with metering data">

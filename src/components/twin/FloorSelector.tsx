@@ -1,11 +1,17 @@
-import { getTower } from "@/lib/twin/data";
+import { useCatalogUnits } from "@/lib/twin/server";
 import { useTwin } from "@/lib/twin/store";
 import { cn } from "@/lib/utils";
 
 export function FloorSelector({ compact = false }: { compact?: boolean }) {
   const twin = useTwin();
-  const tower = getTower(twin.towerId);
-  const floors = Array.from({ length: tower?.floors ?? 10 }, (_, i) => (tower?.floors ?? 10) - i);
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+
+  // Highest floor among the tower's units (catalog is the source of truth; the
+  // summary API carries the authoritative per-unit floor once data loads).
+  const towerFloors = units.filter((u) => u.towerId === twin.towerId).map((u) => u.floor);
+  const maxFloor = towerFloors.length ? Math.max(...towerFloors) : 10;
+  const floors = Array.from({ length: maxFloor }, (_, i) => maxFloor - i);
 
   return (
     <div className={cn("flex w-16 flex-col gap-1", compact && "w-14")}>

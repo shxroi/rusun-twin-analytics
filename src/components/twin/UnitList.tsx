@@ -1,20 +1,19 @@
-import { useMemo } from "react";
-
 import { CATEGORY_LABEL, CATEGORY_TOKEN } from "@/lib/twin/config";
-import { getUnitSummary, getUnits } from "@/lib/twin/data";
 import { nf, rp } from "@/lib/twin/format";
+import { useCatalogUnits, useUnitSummaries } from "@/lib/twin/server";
 import { useTwin } from "@/lib/twin/store";
 import { cn } from "@/lib/utils";
 
 export function UnitList({ floorOnly = true }: { floorOnly?: boolean }) {
   const twin = useTwin();
-  const summaries = useMemo(
-    () =>
-      getUnits(twin.towerId, floorOnly ? twin.floor : undefined)
-        .map((u) => getUnitSummary(u.id, twin.monthKey, twin.tariff)!)
-        .filter(Boolean),
-    [twin.towerId, twin.floor, twin.monthKey, twin.tariff, floorOnly],
-  );
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+  const towerUnits = units.filter((u) => u.towerId === twin.towerId);
+  const { summaries, isPending, isError } = useUnitSummaries(rusun, twin.monthKey, towerUnits, {
+    towerId: twin.towerId,
+  });
+
+  const rows = floorOnly ? summaries.filter((s) => s.unit.floor === twin.floor) : summaries;
 
   return (
     <section className="panel overflow-hidden">
@@ -22,7 +21,9 @@ export function UnitList({ floorOnly = true }: { floorOnly?: boolean }) {
         <h3 className="text-sm font-semibold">
           Unit List {floorOnly ? `— Floor ${twin.floor}` : "— All Floors"}
         </h3>
-        <span className="text-[11px] text-muted-foreground">{summaries.length} units</span>
+        <span className="text-[11px] text-muted-foreground">
+          {isPending ? "loading…" : isError ? "error" : `${rows.length} units`}
+        </span>
       </div>
       <div className="max-h-[520px] overflow-auto">
         <table className="w-full text-xs">
@@ -37,7 +38,7 @@ export function UnitList({ floorOnly = true }: { floorOnly?: boolean }) {
             </tr>
           </thead>
           <tbody>
-            {summaries.map((s) => (
+            {rows.map((s) => (
               <tr
                 key={s.unit.id}
                 onClick={() => twin.selectUnit(s.unit.id)}
@@ -64,6 +65,13 @@ export function UnitList({ floorOnly = true }: { floorOnly?: boolean }) {
                 </td>
               </tr>
             ))}
+            {!isPending && !isError && rows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
+                  No readings for this month.
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>

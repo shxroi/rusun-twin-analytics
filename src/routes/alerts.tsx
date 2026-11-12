@@ -4,7 +4,6 @@ import { AnomalyPanel } from "@/components/twin/AnalyticsCards";
 import { PageShell } from "@/components/twin/PageShell";
 import { TowerSelector } from "@/components/twin/TowerSelector";
 import { UnitDetailPanel } from "@/components/twin/UnitDetailPanel";
-import { getRusunUnits } from "@/lib/twin/data";
 import { useTwin } from "@/lib/twin/store";
 
 export const Route = createFileRoute("/alerts")({
@@ -28,13 +27,12 @@ export const Route = createFileRoute("/alerts")({
 
 function AlertsPage() {
   const twin = useTwin();
-  const unitIds = getRusunUnits(twin.rusunId).map((u) => u.id);
 
   return (
     <PageShell title="Alerts & Anomalies" subtitle="Deviation monitoring across all towers">
       <TowerSelector />
       <div className="grid gap-3 xl:grid-cols-[1.3fr_1fr]">
-        <AnomalyPanel unitIds={unitIds} limit={20} />
+        <AnomalyPanel limit={20} />
         <UnitDetailPanel />
       </div>
     </PageShell>

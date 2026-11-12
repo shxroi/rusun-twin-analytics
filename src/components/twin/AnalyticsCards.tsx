@@ -2,7 +2,7 @@ import { AlertTriangle, Brain, Cpu, Database, Gauge, TrendingUp, Wallet } from "
 
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_TOKEN } from "@/lib/twin/config";
-import { detectAnomalies } from "@/lib/twin/data";
+import { useAnomalies } from "@/lib/twin/server";
 import { analysePeak } from "@/lib/twin/forecast";
 import { nf, rp, shortDate } from "@/lib/twin/format";
 import { useTwin } from "@/lib/twin/store";
@@ -132,9 +132,11 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function AnomalyPanel({ unitIds, limit = 6 }: { unitIds: string[]; limit?: number }) {
+export function AnomalyPanel({ limit = 6 }: { unitIds?: string[]; limit?: number }) {
   const twin = useTwin();
-  const anomalies = detectAnomalies(unitIds, twin.monthKey).slice(0, limit);
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { data, isPending, isError } = useAnomalies(rusun, twin.monthKey, 2);
+  const anomalies = (data?.anomalies ?? []).slice(0, limit);
 
   return (
     <section className="panel p-4">
@@ -156,7 +158,11 @@ export function AnomalyPanel({ unitIds, limit = 6 }: { unitIds: string[]; limit?
                 : "bg-warn/15 text-warn",
           )}
         >
-          {anomalies.length === 0 ? "Normal" : anomalies[0]!.severity === "anomaly" ? "Anomaly" : "Warning"}
+          {anomalies.length === 0
+            ? "Normal"
+            : anomalies[0]!.severity === "anomaly"
+              ? "Anomaly"
+              : "Warning"}
         </Badge>
       </div>
 
@@ -174,10 +180,7 @@ export function AnomalyPanel({ unitIds, limit = 6 }: { unitIds: string[]; limit?
             >
               <span className="flex items-center gap-2">
                 <AlertTriangle
-                  className={cn(
-                    "size-3.5",
-                    a.severity === "anomaly" ? "text-danger" : "text-warn",
-                  )}
+                  className={cn("size-3.5", a.severity === "anomaly" ? "text-danger" : "text-warn")}
                 />
                 <span className="font-medium">Unit {a.unitCode}</span>
                 <span className="text-muted-foreground">{a.timestamp}</span>

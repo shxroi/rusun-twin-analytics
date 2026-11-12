@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { CATEGORY_LABEL, CATEGORY_TOKEN, categoryFor } from "@/lib/twin/config";
-import { getFloorSummaries, getTower } from "@/lib/twin/data";
+import { useCatalogUnits, useUnitSummaries } from "@/lib/twin/server";
 import { nf, rp } from "@/lib/twin/format";
 import { useTwin } from "@/lib/twin/store";
 import type { EfficiencyCategory, HeatmapDimension, UnitSummary } from "@/lib/twin/types";
@@ -61,15 +61,30 @@ function valueOf(s: UnitSummary, dim: HeatmapDimension, tariffKwh: number) {
 
 export function FloorPlanHeatmap() {
   const twin = useTwin();
-  const tower = getTower(twin.towerId);
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units, byId } = useCatalogUnits(rusun);
+  const tower = byId.get(twin.towerId);
   const [hover, setHover] = useState<string | null>(null);
 
-  const summaries = useMemo(
-    () => getFloorSummaries(twin.towerId, twin.floor, twin.monthKey),
-    [twin.towerId, twin.floor, twin.monthKey],
+  // Fetch the whole tower for the month, then pick the selected floor's units
+  // client-side: the summary API returns the authoritative floor per unit.
+  const towerUnits = useMemo(
+    () => units.filter((u) => u.towerId === twin.towerId),
+    [units, twin.towerId],
+  );
+  const { summaries } = useUnitSummaries(rusun, twin.monthKey, towerUnits, {
+    towerId: twin.towerId,
+  });
+
+  const floorSummaries = useMemo(
+    () =>
+      summaries
+        .filter((s) => s.unit.floor === twin.floor)
+        .sort((a, b) => a.unit.slot - b.unit.slot),
+    [summaries, twin.floor],
   );
 
-  const hovered = summaries.find((s) => s.unit.id === hover);
+  const hovered = floorSummaries.find((s) => s.unit.id === hover);
 
   return (
     <section className="panel flex flex-col p-4">
@@ -143,7 +158,7 @@ export function FloorPlanHeatmap() {
           </text>
 
           {UNIT_RECTS.map((r) => {
-            const s = summaries.find((u) => u.unit.slot === r.slot);
+            const s = floorSummaries.find((u) => u.unit.slot === r.slot);
             const cat = s ? categoryOf(s, twin.heatmapDim) : "no-data";
             const token = CATEGORY_TOKEN[cat];
             const selected = s && twin.unitId === s.unit.id;

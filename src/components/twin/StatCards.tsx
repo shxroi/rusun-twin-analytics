@@ -1,8 +1,9 @@
 import { Building2, DollarSign, Droplets, Home, TrendingUp, Users, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { useTwin } from "@/lib/twin/store";
+import { useSummary } from "@/lib/twin/server";
 import { nf, rp } from "@/lib/twin/format";
-import type { ScopeTotals } from "@/lib/twin/data";
 import { cn } from "@/lib/utils";
 
 export function StatCard({
@@ -35,30 +36,57 @@ export function StatCard({
       </div>
       <p className="mt-1.5 text-xl font-semibold tracking-tight">
         {value}
-        {unit ? <span className="ml-1 text-xs font-normal text-muted-foreground">{unit}</span> : null}
+        {unit ? (
+          <span className="ml-1 text-xs font-normal text-muted-foreground">{unit}</span>
+        ) : null}
       </p>
     </div>
   );
 }
 
-export function ScopeStatCards({ totals, peak }: { totals: ScopeTotals; peak?: boolean }) {
+/**
+ * Scope totals from the real Supabase readings via the intelligence API.
+ * Residents are not in the internal database (sensitive data), so that card is
+ * omitted rather than showing a synthetic number.
+ */
+export function ScopeStatCards({ towerId, floor }: { towerId?: string; floor?: number }) {
+  const twin = useTwin();
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const opts: { towerId?: string; floor?: number } = {};
+  if (towerId) opts.towerId = towerId;
+  if (floor !== undefined) opts.floor = floor;
+  const { data, isPending, isError } = useSummary(rusun, twin.monthKey, opts);
+
+  const totals = data?.totals;
+  const cost = totals ? totals.electricity * twin.tariff.electricityRpPerKwh : 0;
+  const peakUnit = totals?.peakUnit;
+
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-      <StatCard label="Total Electricity" value={nf(totals.electricity)} unit="kWh" icon={Zap} tone="elec" />
-      <StatCard label="Total Water" value={nf(totals.water, 0)} unit="m³" icon={Droplets} tone="water" />
-      <StatCard label="Total Cost" value={rp(totals.cost)} icon={DollarSign} tone="cost" />
-      {peak ? (
-        <StatCard
-          label="Peak Day"
-          value={totals.peakDay ? String(Number(totals.peakDay.date.slice(-2))) : "—"}
-          unit={totals.peakDay ? new Date(`${totals.peakDay.date}T00:00:00`).toLocaleDateString("en-GB", { month: "short" }) : undefined}
-          icon={TrendingUp}
-        />
-      ) : (
-        <StatCard label="Towers" value={String(totals.towers)} icon={Building2} />
-      )}
-      <StatCard label="Units" value={String(totals.units)} icon={Home} />
-      <StatCard label="Residents" value={String(totals.residents)} icon={Users} />
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+      <StatCard
+        label="Total Electricity"
+        value={totals ? nf(totals.electricity) : isError ? "Error" : "…"}
+        unit="kWh"
+        icon={Zap}
+        tone="elec"
+      />
+      <StatCard
+        label="Total Water"
+        value={totals ? nf(totals.water, 0) : isError ? "Error" : "…"}
+        unit="m³"
+        icon={Droplets}
+        tone="water"
+      />
+      <StatCard label="Total Cost" value={totals ? rp(cost) : "…"} icon={DollarSign} tone="cost" />
+      <StatCard label="Peak Unit" value={peakUnit ?? (isPending ? "…" : "—")} icon={TrendingUp} />
+      <StatCard
+        label={floor !== undefined ? "Units on Floor" : "Units"}
+        value={totals ? String(totals.units) : "…"}
+        icon={Home}
+      />
+      {floor === undefined ? (
+        <StatCard label="Towers" value={totals ? String(totals.towers) : "…"} icon={Building2} />
+      ) : null}
     </div>
   );
 }

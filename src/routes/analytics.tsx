@@ -1,10 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { AnomalyPanel, ForecastSummaryCards, TwinStatusCard } from "@/components/twin/AnalyticsCards";
+import {
+  AnomalyPanel,
+  ForecastSummaryCards,
+  TwinStatusCard,
+} from "@/components/twin/AnalyticsCards";
 import { SyncedCharts } from "@/components/twin/ConsumptionCharts";
 import { PageShell } from "@/components/twin/PageShell";
 import { TowerSelector } from "@/components/twin/TowerSelector";
-import { getRusunUnits, getUnits } from "@/lib/twin/data";
+import { useCatalogUnits } from "@/lib/twin/server";
 import { useTwin } from "@/lib/twin/store";
 import { cn } from "@/lib/utils";
 
@@ -32,10 +36,11 @@ const HORIZONS = [7, 14, 30];
 function AnalyticsPage() {
   const twin = useTwin();
   const [scope, setScope] = [twin.granularity, twin.setGranularity];
-  const unitIds =
-    scope === "monthly"
-      ? getRusunUnits(twin.rusunId).map((u) => u.id)
-      : getUnits(twin.towerId).map((u) => u.id);
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+  const unitIds = units
+    .filter((u) => (scope === "monthly" ? true : u.towerId === twin.towerId))
+    .map((u) => u.code);
 
   return (
     <PageShell title="Predictive Analytics" subtitle="Forecasting, peak load & anomaly detection">
@@ -49,7 +54,8 @@ function AnalyticsPage() {
               onClick={() => twin.setForecastHorizon(h)}
               className={cn(
                 "rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground",
-                twin.forecastHorizon === h && "border-primary bg-primary/15 font-medium text-primary",
+                twin.forecastHorizon === h &&
+                  "border-primary bg-primary/15 font-medium text-primary",
               )}
             >
               {h} days
@@ -67,7 +73,7 @@ function AnalyticsPage() {
       <ForecastSummaryCards unitIds={unitIds} />
       <SyncedCharts unitIds={unitIds} />
       <div className="grid gap-3 xl:grid-cols-[1.5fr_1fr]">
-        <AnomalyPanel unitIds={unitIds} limit={10} />
+        <AnomalyPanel limit={10} />
         <TwinStatusCard />
       </div>
     </PageShell>

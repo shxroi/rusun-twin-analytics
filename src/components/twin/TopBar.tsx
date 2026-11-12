@@ -12,10 +12,14 @@ import {
 import { RUSUN_LIST, monthLabel } from "@/lib/twin/data";
 import { MONTH_OPTIONS, useTwin } from "@/lib/twin/store";
 import { exportScopeCsv } from "@/lib/twin/export";
+import { useCatalogUnits, useUnitSummaries } from "@/lib/twin/server";
 import { cn } from "@/lib/utils";
 
 export function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
   const twin = useTwin();
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+  const { summaries } = useUnitSummaries(rusun, twin.monthKey, units);
 
   const modes = [
     { id: "electricity", label: "Electricity", icon: Zap },
@@ -82,7 +86,7 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
           size="sm"
           className="h-9 bg-card"
           onClick={() => {
-            exportScopeCsv(twin.rusunId, twin.monthKey, twin.towerId);
+            exportScopeCsv(twin.monthKey, summaries, undefined, twin.tariff);
             toast.success("Laporan CSV diunduh");
           }}
         >

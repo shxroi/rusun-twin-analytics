@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { cssColorToHex } from "@/lib/twin/color";
 import { CATEGORY_TOKEN } from "@/lib/twin/config";
 import { getFloorSummaries, getTowers } from "@/lib/twin/data";
+import { useCatalogUnits, useUnitSummaries } from "@/lib/twin/server";
 import { useTwin } from "@/lib/twin/store";
 import { MODEL_SCALE as S, TOWER_MODEL as M, floorBaseY, floorFromY } from "@/lib/twin/towerModel";
 import type { EfficiencyCategory } from "@/lib/twin/types";
@@ -211,17 +212,23 @@ function UnitTiles({
   colorFor: (c: EfficiencyCategory) => string;
 }) {
   const twin = useTwin();
-  const summaries = useMemo(
-    () => getFloorSummaries(twin.towerId, floor, twin.monthKey),
-    [twin.towerId, floor, twin.monthKey],
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+  const towerUnits = useMemo(
+    () => units.filter((u) => u.towerId === twin.towerId),
+    [units, twin.towerId],
   );
+  const { summaries } = useUnitSummaries(rusun, twin.monthKey, towerUnits, {
+    towerId: twin.towerId,
+  });
+  const floorSummaries = summaries.filter((s) => s.unit.floor === floor);
   const site = layoutFor(towerIndex);
   const colW = M.width / 3;
 
   return (
     <group position={[site.x, 0, site.z]} rotation={[0, site.rot, 0]} scale={S}>
       <group position={[0, floorBaseY(floor) + M.floorHeight / 2, 0]}>
-        {summaries.map((s, i) => {
+        {floorSummaries.map((s, i) => {
           const col = i % 3;
           const row = i < 3 ? -1 : 1;
           const selected = twin.unitId === s.unit.id;
@@ -294,7 +301,18 @@ function Scene({
   colors: Record<string, string>;
 }) {
   const twin = useTwin();
-  const towers = getTowers(twin.rusunId);
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const { units } = useCatalogUnits(rusun);
+  // Derive the tower list from the catalog (unique tower ids in stable order).
+  const towers = useMemo(() => {
+    const seen: { id: string; name: string }[] = [];
+    for (const u of units) {
+      if (!seen.some((t) => t.id === u.towerId)) {
+        seen.push({ id: u.towerId, name: u.towerId });
+      }
+    }
+    return seen;
+  }, [units]);
   const accent = colors["accent"] || "#4f8cff";
 
   const colorFor = useCallback(

@@ -12,7 +12,7 @@ import {
 
 import { useTwin } from "@/lib/twin/store";
 import { useTwinCatalog } from "@/lib/twin/api";
-import { getUnit } from "@/lib/twin/data";
+import { useCatalogUnits } from "@/lib/twin/server";
 import { forecastCost, forecastElectricity, forecastWater } from "@/lib/twin/forecast";
 import { dayOf, nf, rp, shortDate } from "@/lib/twin/format";
 import type { ForecastResult } from "@/lib/twin/types";
@@ -28,9 +28,11 @@ const META: Record<ChartKind, { title: string; color: string; unit: string }> = 
 
 export function useForecast(kind: ChartKind, unitIds: string[]) {
   const twin = useTwin();
-  const catalog = useTwinCatalog(twin.rusunId.replace(/\D/g, "") || "3");
+  const rusun = twin.rusunId.replace(/\D/g, "") || "3";
+  const catalog = useTwinCatalog(rusun);
+  const { byCode } = useCatalogUnits(rusun);
   const selectedTowerIds = new Set(
-    unitIds.map((id) => getUnit(id)?.towerId).filter((id): id is string => Boolean(id)),
+    unitIds.map((id) => byCode.get(id)?.towerId).filter((id): id is string => Boolean(id)),
   );
   const realUnitIds = catalog.data
     ? catalog.data.units
@@ -38,16 +40,14 @@ export function useForecast(kind: ChartKind, unitIds: string[]) {
         .map((unit) => unit.code)
     : [];
   return useQuery<ForecastResult>({
-    queryKey: [
-      "forecast",
-      kind,
-      twin.monthKey,
-      twin.forecastHorizon,
-      realUnitIds.join(","),
-    ],
+    queryKey: ["forecast", kind, twin.monthKey, twin.forecastHorizon, realUnitIds.join(",")],
     enabled: Boolean(catalog.data),
     queryFn: () => {
-      const req = { unitIds: realUnitIds, monthKey: twin.monthKey, horizonDays: twin.forecastHorizon };
+      const req = {
+        unitIds: realUnitIds,
+        monthKey: twin.monthKey,
+        horizonDays: twin.forecastHorizon,
+      };
       if (kind === "water") return forecastWater(req);
       if (kind === "cost") return forecastCost(req, twin.tariff);
       return forecastElectricity(req);
@@ -96,7 +96,8 @@ export function ForecastChart({
   const { data, isPending } = useForecast(kind, unitIds);
   const rows = data ? buildRows(data) : [];
 
-  const fmt = (v: number) => (kind === "cost" ? rp(v) : `${nf(v, kind === "water" ? 2 : 1)} ${meta.unit}`);
+  const fmt = (v: number) =>
+    kind === "cost" ? rp(v) : `${nf(v, kind === "water" ? 2 : 1)} ${meta.unit}`;
 
   return (
     <section className={cn("panel p-4", className)}>
@@ -141,7 +142,9 @@ export function ForecastChart({
                 tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                 stroke="var(--border)"
                 width={62}
-                tickFormatter={(v: number) => (kind === "cost" ? `${Math.round(v / 1000)}k` : nf(v, 0))}
+                tickFormatter={(v: number) =>
+                  kind === "cost" ? `${Math.round(v / 1000)}k` : nf(v, 0)
+                }
               />
               <Tooltip
                 contentStyle={{
@@ -152,7 +155,9 @@ export function ForecastChart({
                 }}
                 labelStyle={{ color: "var(--muted-foreground)" }}
                 formatter={(value: unknown, name: string) =>
-                  value == null ? ["—", name] : [fmt(Number(value)), name === "actual" ? "Actual" : "Forecast"]
+                  value == null
+                    ? ["—", name]
+                    : [fmt(Number(value)), name === "actual" ? "Actual" : "Forecast"]
                 }
               />
               <Area
