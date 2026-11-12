@@ -4,18 +4,47 @@ Rusun ASN IKN — Smart Metering Predictive Digital Twin Dashboard
 
 ## Intelligence API connection
 
-The Analytics page uses the NusaWatt intelligence API for the real catalog and
-forecast data. Copy `.env.example` to `.env` and set
-`VITE_INTELLIGENCE_API_URL` to the running API's `/api/forecast` URL. The API
-process owns the Supabase connection; do not put `SUPABASE_DB_URL` or a secret
-key in this frontend.
+The dashboard reads **real Supabase smart-meter data** through the NusaWatt
+intelligence API. Every page is wired to it:
+
+| Dashboard area | API endpoint | Data |
+|---|---|---|
+| Rusun/tower/unit selectors | `GET /api/catalog` | real units & towers |
+| Stat cards, tower comparison | `GET /api/summary` | real monthly totals |
+| Floor-plan heatmap, unit list | `GET /api/summary` | real per-unit usage |
+| Unit detail chart | `GET /api/series` | real daily readings |
+| Alerts, anomaly panel | `GET /api/anomalies` | real z-score deviations |
+| Forecast charts | `POST /api/forecast` | LSTM / avg4 forecasts |
+
+Copy `.env.example` to `.env` and set `VITE_INTELLIGENCE_API_URL` to the
+running API's `/api/forecast` URL. The API process owns the Supabase
+connection; do not put `SUPABASE_DB_URL` or a secret key in this frontend.
 
 Start the intelligence API from `rusun-intelligence` after training and
 forecasting a run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.forecast_api:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn app.forecast_api:app --host 127.0.0.1 --port 8080
 ```
+
+> The API listens on **8080**, not 8000. Windows reserves ports 7940–8039
+> (Docker Desktop), so binding 8000 fails with `winerror 10013`.
+
+### Mock vs real data
+
+Two pieces have **no source in the internal database** and stay illustrative:
+
+- **Residents** — resident data is sensitive and not stored in the internal
+  smart-metering database. The resident table in the unit detail panel is
+  labelled *illustrative*.
+- **5-minute intervals** — the internal database stores daily usage only
+  (`daily_usage`). Interval data exists in the resident-facing production
+  database, so the 5-minute view is omitted and a note explains why.
+
+Everything else — totals, unit summaries, heatmaps, anomalies, series — is
+computed from the real `meter_readings` table. See
+[`src/lib/twin/server.ts`](src/lib/twin/server.ts) for the API client and
+[`src/lib/twin/data.ts`](src/lib/twin/data.ts) for the remaining helpers.
 
 ## Project status
 
@@ -24,6 +53,10 @@ heavy GLB asset. The tower is generated in code from a traced floor-plan
 outline and shared across all six towers, which keeps the viewer lightweight
 while preserving the real model's footprint, floor elevations, and three
 lightwell openings.
+
+The 3D units are coloured from the **real** monthly summaries returned by
+`/api/summary`, so the spatial model reflects actual consumption rather than
+generated values.
 
 The current procedural model contains:
 
@@ -54,724 +87,172 @@ original model, while window positions use an assumed 3 m bay spacing.
   `towerShape.ts` from a dumped copy of another model. See the script header
   for the expected input format and Python dependencies.
 
-Project Context
-
-I have an existing Smart Metering Dashboard for Rusun ASN in IKN Nusantara.
-
-The existing system already monitors electricity and water consumption from smart meters and provides:
-
-Rusun-level monitoring
-
-Tower-level monitoring
-
-Floor/unit-level monitoring
-
-Electricity consumption
-
-Water consumption
-
-Electricity cost
-
-Daily consumption charts
-
-5-minute consumption readings
-
-Tower comparison
-
-Floor/unit heatmaps
-
-Consumption efficiency categories
-
-Unit resident information
-
-CSV/report export
-
-I want to ENHANCE this existing system into an interactive Building Digital Twin dashboard.
-
-Do NOT replace the existing monitoring concept.
-
-The Digital Twin should become an additional analytical and spatial visualization layer on top of the existing smart-metering system.
-
-1. Design Direction
-
-Create a modern, professional dark-mode Smart City / Building Digital Twin interface.
-
-The design should feel similar to:
-
-Smart City Command Center
-
-Building Management System
-
-Energy Management System
-
-Digital Twin platform
-
-Enterprise analytics dashboard
-
-Use the existing dashboard screenshots as the primary reference for the current UI.
-
-Maintain:
-
-Dark navy background
-
-Dark blue-gray cards
-
-Rounded cards
-
-Clear hierarchy
-
-Compact enterprise dashboard layout
-
-Blue for water
-
-Amber/yellow for electricity
-
-Green for efficient consumption
-
-Yellow/orange for moderate/high consumption
-
-Red for abnormal/high consumption
-
-The interface must remain professional and suitable for an academic final-project prototype and government Smart City context.
-
-2. Main Navigation
-
-Create a left sidebar navigation with:
-
-Overview
-
-3D Digital Twin
-
-Towers
-
-Floor Plans
-
-Units
-
-Analytics
-
-Alerts
-
-Reports
-
-Settings
-
-The main page should open on the Digital Twin / Overview experience.
-
-3. Top-Level Dashboard
-
-At the top of the dashboard show:
-
-Total Electricity
-
-Total Water
-
-Total Cost
-
-Number of Towers
-
-Number of Units
-
-Number of Residents
-
-Include:
-
-Rusun selector
-
-Month/date selector
-
-Electricity / Water / Both filter
-
-Export Report
-
-Refresh Data
-
-Use the existing dashboard screenshots to preserve the existing terminology and hierarchy.
-
-4. Main Digital Twin View
-
-Create a large central panel titled:
-
-"3D Digital Twin — Rusun ASN 3"
-
-Render the procedural Three.js tower model in an interactive 3D viewer.
-
-The geometry and materials are created once and shared by all six towers. The
-active tower is shown in full color while inactive towers are dimmed. Edit the
-hex values at the top of
-[`src/components/twin/ProceduralTower.tsx`](src/components/twin/ProceduralTower.tsx)
-to restyle the building; no model export or asset regeneration is required.
-
-Use Three.js / React Three Fiber if appropriate.
-
-The 3D model must support:
-
-Orbit rotation
-
-Zoom
-
-Pan
-
-Reset camera
-
-Fullscreen
-
-Selection/highlighting
-
-Tower selection
-
-Floor selection
-
-The 3D model should not be treated as a decorative image.
-
-It is the spatial representation of the building and must be connected to the smart-metering data.
-
-5. Tower Selection
-
-Provide a tower selector:
-
-Tower A
-
-Tower B
-
-Tower C
-
-Tower D
-
-Tower E
-
-Tower F
-
-When a tower is selected:
-
-Highlight the selected tower in the 3D model.
-
-Update the tower statistics.
-
-Update the floor-plan view.
-
-Update electricity and water charts.
-
-Update unit information.
-
-Keep all visualizations synchronized.
-
-Example:
-
-Tower A selected → all displayed analytical information refers to Tower A.
-
-6. Floor Selection
-
-Provide a vertical floor selector beside the 3D model.
-
-Example:
-
-Roof
-
-Floor 10
-
-Floor 9
-
-Floor 8
-
-Floor 7
-
-...
-
-Floor 1
-
-When a floor is selected:
-
-Highlight the corresponding floor in the 3D model.
-
-Display that floor's floor plan.
-
-Display unit-level consumption.
-
-Update the heatmap.
-
-Allow individual unit selection.
-
-7. Interactive Floor Plan Heatmap
-
-This is a major feature.
-
-Use the provided architectural floor-plan image as the visual reference.
-
-Create an interactive floor-plan heatmap similar to the existing Energy Efficiency Grades visualization.
-
-For example:
-
-Floor 10 — Tower A
-
-Display:
-
-Unit A-1001
-
-Unit A-1002
-
-Unit A-1003
-
-Unit A-1004
-
-Unit A-1005
-
-Unit A-1006
-
-etc.
-
-Each unit should be represented by a selectable colored region corresponding to its position on the floor plan.
-
-Do not simply display the floor-plan image as a static picture.
-
-Overlay interactive unit regions on top of the floor plan.
-
-Each unit should display:
-
-Unit number
-
-Electricity consumption
-
-Water consumption
-
-Efficiency/anomaly status
-
-Example:
-
-A-1003
-16.5 kWh/day
-0.23 m³/day
-Wajar
-
-8. Heatmap Categories
+## Project context
+
+This project enhances an existing Smart Metering Dashboard for Rusun ASN in
+IKN Nusantara. The existing system already monitors electricity and water
+consumption from smart meters and provides:
+
+- Rusun-level, tower-level and floor/unit-level monitoring
+- Electricity and water consumption
+- Electricity cost
+- Daily consumption charts
+- 5-minute consumption readings
+- Tower comparison
+- Floor/unit heatmaps
+- Consumption efficiency categories
+- Unit resident information
+- CSV/report export
+
+The goal was to ENHANCE this system into an interactive Building Digital Twin
+dashboard, not replace the existing monitoring concept. The Digital Twin is an
+additional analytical and spatial visualization layer on top of the existing
+smart-metering system.
+
+The current implementation is connected to the real smart-metering database
+(through the intelligence API) rather than the mock data the prototype was
+first built with. Two items from the original brief remain illustrative
+because the internal database does not carry them — see
+[Mock vs real data](#mock-vs-real-data) above.
+
+## Features
+
+### Overview
+- Stat cards: total electricity, total water, total cost, peak unit, unit and
+  tower counts — all from `/api/summary` for the selected month and scope
+- Tower comparison bar chart (click a bar to focus that tower)
+- Forecast summary cards (electricity, water, estimated future cost, peak)
+- Rusun / month / metric selectors and CSV export
+
+### 3D Digital Twin
+- Procedural Three.js tower (no heavy GLB asset): podium, ten residential
+  floors, roof slab, parapet, slab bands, window panes and lightwell openings
+- Orbit / zoom / pan / reset camera / fullscreen
+- Tower and floor selection; units coloured by real consumption category
+- Synchronised with the floor plan, unit list and unit detail panel
+
+### Towers and Floor Plans
+- Per-tower stat cards and unit list
+- Interactive floor-plan heatmap (SVG unit regions, not a static image) with
+  Electricity / Water / Cost / Anomaly toggle and a category legend
+- Unit selection synchronises the 3D model, floor plan, list and detail panel
+
+### Unit Detail
+- Monthly totals, averages, cost and efficiency category
+- Daily and monthly consumption charts from `/api/series`
+- Trend indicators (electricity today, water today, forecast tomorrow)
+- Resident table (illustrative — see *Mock vs real data*)
+
+### Analytics
+- Forecast horizon selector (7 / 14 / 30 days)
+- Historical actual vs forecast charts with confidence band
+- Peak analysis and anomaly detection panel
+
+### Reports
+- CSV export of per-unit monthly consumption (tower or whole rusun)
+- Tower summary export
+- Tariff configurable on the Settings page
+
+## Efficiency categories
 
 Electricity (average daily kWh per unit):
 
-- Hemat — < 17.81 kWh
-- Normal — 17.81 - 21.46 kWh
-- Boros — 21.47 - 25.11 kWh
-- Sangat Boros — > 25.11 kWh
+| Category | Range |
+|---|---|
+| Hemat | < 17.81 kWh |
+| Normal | 17.81 – 21.46 kWh |
+| Boros | 21.47 – 25.11 kWh |
+| Sangat Boros | > 25.11 kWh |
 
-Water (average daily m3 per unit):
+Water (average daily m³ per unit):
 
-- Hemat — < 0.48 m3
-- Normal — 0.48 - 0.73 m3
-- Boros — > 0.73 m3
+| Category | Range |
+|---|---|
+| Hemat | < 0.48 m³ |
+| Normal | 0.48 – 0.73 m³ |
+| Boros | > 0.73 m³ |
 
-Use the existing dashboard's category concept.
+Defined in [`src/lib/twin/config.ts`](src/lib/twin/config.ts) and shown in the
+legend on the floor-plan heatmap.
 
-The colors should clearly distinguish the categories.
+## Data architecture
 
-Add a legend.
+```
+Dashboard (src/lib/twin/server.ts)
+  → intelligence API (app/forecast_api.py)
+    → Supabase "meteran-cerdas" schema
+         complexes → towers → units → meter_readings
+```
 
-Also provide a toggle:
+Hierarchy: Rusun → Tower → Floor → Unit → Meter → Timestamp → Electricity / Water.
 
-Electricity
+The data-access layer is split in two files:
 
-Water
+- [`src/lib/twin/server.ts`](src/lib/twin/server.ts) — async API client and
+  React Query hooks for all real data (summary, series, anomalies, catalog)
+- [`src/lib/twin/data.ts`](src/lib/twin/data.ts) — remaining helpers and the
+  illustrative resident data
 
-Cost
+The browser never receives the database connection string; it only gets
+catalog/summary/series/anomaly JSON from the API.
 
-Anomaly
+### Data source
 
-This allows the same floor plan to become a multi-dimensional analytical map.
+From the Supabase `meteran-cerdas` schema:
 
-9. Unit Selection
+- `complexes` — rusun (ASN 1–4)
+- `towers` — towers within a complex
+- `units` — apartments (1,320 across all rusun)
+- `meter_readings` — daily electricity/water usage (≈500k rows)
 
-When the user clicks a unit in either:
+### Forecasting
 
-the 3D model
+The UI supports the LSTM forecasting model served by the intelligence API.
+The service layer is [`src/lib/twin/forecast.ts`](src/lib/twin/forecast.ts):
 
-the floor plan
+- `forecastElectricity()` / `forecastWater()` — `POST /api/forecast` with
+  `{ unitIds, monthKey, horizonDays }`
+- `forecastCost()` — same forecast multiplied by the configured tariff
 
-the unit list
+The month filter (`monthKey`) selects what the forecast endpoint returns: a
+past month shows as-of backtest forecasts, the cutoff month mixes backtest +
+live, and a future month shows the live forecast. `meta.forecastType` reports
+which one was served.
 
-all three representations should synchronize.
+## Performance notes
 
-Example:
+The viewer uses a low-poly procedural model rather than the original high-poly
+asset. Geometry is cached and shared between towers, materials are shared
+between active and dimmed states, and the canvas uses on-demand rendering so
+the GPU can idle when the scene is unchanged.
 
-User clicks Unit A-1003.
+When extending the viewer:
 
-Then:
+- Use `Suspense` and a loading indicator for scene content
+- Avoid duplicating geometry or materials per tower
+- Dispose resources only when they are not shared by another tower
+- Keep tower selection and floor highlighting synchronised with the
+  smart-metering state
 
-3D model:
-→ Highlight Unit A-1003
+## Responsive design
 
-Floor plan:
-→ Highlight Unit A-1003
+The primary target is desktop/laptop (command-centre dashboard):
 
-Unit detail:
-→ Show Unit A-1003
+- 1920×1080
+- 1440×900
+- 1366×768
 
-Charts:
-→ Show Unit A-1003 historical data
+## Scope
 
-This synchronization is a key Digital Twin interaction.
+Focused on Rusun building utility consumption only. Out of scope: traffic,
+weather, CCTV, waste management and transportation modules.
 
-10. Unit Detail Panel
+## Tech stack
 
-Display:
-
-Unit A-1003
-
-Floor
-
-Unit number
-
-Unit type
-
-Number of residents
-
-Electricity consumption
-
-Water consumption
-
-Electricity cost
-
-Efficiency status
-
-Last update
-
-Include buttons:
-
-View 5-Minute Data
-
-View Daily Data
-
-View Monthly Data
-
-Also show small trend indicators:
-
-Electricity Today
-Water Today
-Cost Today
-
-11. Analytical Dashboard
-
-Add analytical cards for:
-
-Forecast
-
-Electricity forecast
-
-Water forecast
-
-Forecast horizon
-
-Forecast confidence where appropriate
-
-Example:
-
-"Predicted electricity tomorrow: 17.2 kWh/day"
-
-Peak Analysis
-
-Display:
-
-Historical peak
-
-Predicted peak
-
-Peak date/time
-
-Peak consumption
-
-Anomaly Detection
-
-Display:
-
-Normal
-
-Warning
-
-Anomaly
-
-If an anomaly is detected, show:
-
-Unit
-
-Timestamp
-
-Actual consumption
-
-Expected consumption
-
-Deviation
-
-Example:
-
-"Unit A-1009 — electricity consumption 2.4σ above expected pattern."
-
-12. Forecasting
-
-The UI must be designed to support an LSTM forecasting model.
-
-Do not hard-code the concept as random prediction.
-
-The application should have a clean data interface so a real forecasting API/model can later be connected.
-
-Create a placeholder service layer such as:
-
-forecastElectricity()
-forecastWater()
-
-The frontend should initially work with mock data if the ML backend is not connected.
-
-Forecast visualization should distinguish:
-
-Historical actual data
-
-Forecast data
-
-Forecast period
-
-13. Electricity Cost Estimation
-
-The existing system already displays electricity cost.
-
-Do not remove that functionality.
-
-Enhance it by allowing:
-
-Historical Cost
-+
-Predicted Electricity Consumption
-
-Estimated Future Electricity Cost
-
-Display:
-
-Current cost
-
-Historical cost
-
-Predicted cost
-
-Cost trend
-
-The tariff should be configurable rather than hard-coded into UI components.
-
-14. Main Charts
-
-Create three synchronized charts:
-
-Daily Electricity
-
-Show:
-
-Historical electricity consumption
-
-Forecast electricity consumption
-
-Daily Water
-
-Show:
-
-Historical water consumption
-
-Forecast water consumption
-
-Electricity Cost
-
-Show:
-
-Historical cost
-
-Predicted cost
-
-Charts should support:
-
-Hover tooltip
-
-Date selection
-
-Unit/tower filtering
-
-Daily/weekly/monthly views
-
-15. Digital Twin Status
-
-Add an overall Digital Twin status card:
-
-"Digital Twin Status"
-
-Display:
-
-Data Connection: Connected
-
-Last Data Update
-
-Model Status
-
-Forecast Status
-
-Anomaly Engine Status
-
-Example:
-
-Data Connection
-● Connected
-
-Last Update
-11/08/2026 16:10
-
-Forecast Model
-● Ready
-
-Anomaly Detection
-● Active
-
-16. Data Architecture
-
-Structure the frontend so it can later connect to the existing smart-metering database/API.
-
-Expected hierarchy:
-
-Rusun
-→ Tower
-→ Floor
-→ Unit
-→ Meter
-→ Timestamp
-→ Electricity / Water consumption
-
-Do not create unnecessary new sensor concepts.
-
-The system is based on EXISTING smart-meter data.
-
-17. Existing Data
-
-I will provide CSV files containing electricity and water smart-meter data.
-
-Use those files to understand the actual data structure.
-
-Do not invent a completely unrelated schema.
-
-Create a clean data-access layer so the prototype can later be connected to Supabase/PostgreSQL or an API.
-
-18. Important Interaction Flow
-
-The main user journey should be:
-
-Rusun Overview
-↓
-Select Tower
-↓
-3D Tower View
-↓
-Select Floor
-↓
-Floor Plan Heatmap
-↓
-Select Unit
-↓
-Unit Detail
-↓
-Historical Consumption
-↓
-Forecast
-↓
-Anomaly / Peak Analysis
-↓
-Decision Support
-
-The 3D model and floor plan must behave as two synchronized spatial representations of the same building.
-
-19. Performance
-
-The viewer uses a low-poly procedural model rather than loading the original
-high-poly asset. Geometry is cached and shared between towers, materials are
-shared between active and dimmed states, and the canvas uses on-demand
-rendering so the GPU can idle when the scene is unchanged.
-
-Keep the following behavior when extending the viewer:
-
-- Use `Suspense` and a loading indicator for scene content.
-- Avoid duplicating geometry or materials per tower.
-- Dispose resources only when they are not shared by another tower.
-- Avoid unnecessary React re-renders.
-- Keep tower selection and floor highlighting synchronized with the
-  smart-metering state.
-
-20. Responsive Design
-
-The primary target is desktop/laptop because this is a command-center style dashboard.
-
-Prioritize:
-
-1920×1080
-1440×900
-1366×768
-
-Maintain readable charts and usable 3D controls.
-
-21. Prototype Scope
-
-This is an academic Digital Twin prototype.
-
-Prioritize:
-
-Existing smart-meter monitoring
-
-3D spatial visualization
-
-Floor-plan heatmap
-
-Unit selection
-
-Historical analytics
-
-Forecast visualization
-
-Peak analysis
-
-Anomaly visualization
-
-Electricity cost estimation
-
-Do not add unrelated smart-city modules such as:
-
-traffic
-
-weather
-
-CCTV
-
-waste management
-
-transportation
-
-Keep the Digital Twin focused on Rusun building utility consumption.
-
-22. Important Concept
-
-The final application should visually communicate this concept:
-
-EXISTING SMART METERING
-↓
-ELECTRICITY + WATER DATA
-↓
-ANALYTICAL DIGITAL TWIN
-↓
-3D BUILDING + FLOOR PLAN
-↓
-FORECAST + PEAK + ANOMALY + COST
-↓
-DECISION SUPPORT
-
-The system should feel like an enhancement of the existing Smart Metering Dashboard rather than an unrelated new application.
-
-Build the first version with realistic mock data derived from the provided screenshots/CSV structure, but keep all components modular so they can later be connected to the real backend and LSTM/anomaly-detection services.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/eff804b2-753d-430e-b60f-23418710b513).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+- React + TypeScript + Vite
+- TanStack Start (file-based routing) and TanStack Query (server state)
+- React Three Fiber + Three.js (procedural digital twin)
+- Recharts (charts), Radix UI + Tailwind CSS (interface)
 
 ## Development
 
@@ -793,6 +274,14 @@ npx tsc --noEmit
 npm run lint
 npm run build
 ```
+
+> Note: `npm run lint` currently reports many pre-existing CRLF
+> (`Delete ␍`) prettier errors across `src/components/ui/*` and other
+> untouched files. Lint only the files you changed, e.g.:
+>
+> ```sh
+> npx eslint src/lib/twin/server.ts src/components/twin/StatCards.tsx
+> ```
 
 The targeted tower integration files can be linted independently:
 
