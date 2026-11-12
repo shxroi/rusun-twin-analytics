@@ -20,38 +20,33 @@ export const TARIFF_STORAGE_KEY = "rusun-twin-tariff";
 
 /** Average daily kWh per unit thresholds (upper bound of each category). */
 export const ELECTRICITY_THRESHOLDS: { max: number; category: EfficiencyCategory }[] = [
-  { max: 10, category: "sangat-hemat" },
-  { max: 15, category: "hemat" },
-  { max: 19, category: "wajar" },
-  { max: 23, category: "cukup-boros" },
+  { max: 17.81, category: "hemat" },
+  { max: 21.46, category: "normal" },
+  { max: 25.11, category: "boros" },
   { max: Infinity, category: "sangat-boros" },
 ];
 
 /** Average daily m3 per unit thresholds. */
 export const WATER_THRESHOLDS: { max: number; category: EfficiencyCategory }[] = [
-  { max: 0.22, category: "sangat-hemat" },
-  { max: 0.32, category: "hemat" },
-  { max: 0.45, category: "wajar" },
-  { max: 0.7, category: "cukup-boros" },
-  { max: Infinity, category: "sangat-boros" },
+  { max: 0.48, category: "hemat" },
+  { max: 0.73, category: "normal" },
+  { max: Infinity, category: "boros" },
 ];
 
 export const CATEGORY_LABEL: Record<EfficiencyCategory, string> = {
-  "sangat-hemat": "Sangat Hemat",
   hemat: "Hemat",
-  wajar: "Wajar",
-  "cukup-boros": "Cukup Boros",
+  normal: "Normal",
+  boros: "Boros",
   "sangat-boros": "Sangat Boros",
   "no-data": "No Data",
 };
 
 /** Semantic token names (defined in src/styles.css) per category. */
 export const CATEGORY_TOKEN: Record<EfficiencyCategory, string> = {
-  "sangat-hemat": "cat-1",
-  hemat: "cat-2",
-  wajar: "cat-3",
-  "cukup-boros": "cat-4",
-  "sangat-boros": "cat-5",
+  hemat: "cat-1",
+  normal: "cat-2",
+  boros: "cat-3",
+  "sangat-boros": "cat-4",
   "no-data": "cat-none",
 };
 

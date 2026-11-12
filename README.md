@@ -345,19 +345,18 @@ Wajar
 
 8. Heatmap Categories
 
-Initially use these categories:
+Electricity (average daily kWh per unit):
 
-Sangat Hemat
+- Hemat — < 17.81 kWh
+- Normal — 17.81 - 21.46 kWh
+- Boros — 21.47 - 25.11 kWh
+- Sangat Boros — > 25.11 kWh
 
-Hemat
+Water (average daily m3 per unit):
 
-Wajar
-
-Cukup Boros
-
-Sangat Boros
-
-No Data
+- Hemat — < 0.48 m3
+- Normal — 0.48 - 0.73 m3
+- Boros — > 0.73 m3
 
 Use the existing dashboard's category concept.
 

@@ -33,10 +33,9 @@ const DIMENSIONS: { id: HeatmapDimension; label: string }[] = [
 ];
 
 const CATEGORY_ORDER: EfficiencyCategory[] = [
-  "sangat-hemat",
   "hemat",
-  "wajar",
-  "cukup-boros",
+  "normal",
+  "boros",
   "sangat-boros",
   "no-data",
 ];
@@ -45,8 +44,8 @@ function categoryOf(s: UnitSummary, dim: HeatmapDimension): EfficiencyCategory {
   if (dim === "water") return s.waterCategory;
   if (dim === "anomaly") {
     if (s.maxSigma >= 2.6) return "sangat-boros";
-    if (s.maxSigma >= 2) return "cukup-boros";
-    if (s.maxSigma >= 1.5) return "wajar";
+    if (s.maxSigma >= 2) return "boros";
+    if (s.maxSigma >= 1.5) return "normal";
     return "hemat";
   }
   if (dim === "cost") return categoryFor(s.avgElectricity, "electricity");

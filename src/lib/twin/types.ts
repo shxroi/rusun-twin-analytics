@@ -5,13 +5,7 @@ export type MetricMode = "electricity" | "water" | "both";
 export type HeatmapDimension = "electricity" | "water" | "cost" | "anomaly";
 export type Granularity = "daily" | "weekly" | "monthly";
 
-export type EfficiencyCategory =
-  | "sangat-hemat"
-  | "hemat"
-  | "wajar"
-  | "cukup-boros"
-  | "sangat-boros"
-  | "no-data";
+export type EfficiencyCategory = "hemat" | "normal" | "boros" | "sangat-boros" | "no-data";
 
 export interface Rusun {
   id: string;
