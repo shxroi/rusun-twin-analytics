@@ -43,9 +43,21 @@ function AnalyticsPage() {
     .map((u) => u.code);
 
   return (
-    <PageShell title="Predictive Analytics" subtitle="Forecasting, peak load & anomaly detection">
+    <PageShell
+      title="Predictive Analytics"
+      subtitle="Forecasting, peak load & anomaly detection"
+      showMonthFilter={false}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <TowerSelector />
+        <div className="flex flex-wrap items-center gap-3">
+          <TowerSelector />
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Floor</span>
+            <span className="w-10 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground">
+              {twin.floor}
+            </span>
+          </div>
+        </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Horizon</span>
           {HORIZONS.map((h) => (

@@ -39,7 +39,7 @@ export function UnitDetailPanel() {
     enabled: !!twin.unitId,
   });
 
-  const series = useUnitSeries(rusun, twin.monthKey, twin.unitId ?? "");
+  const series = useUnitSeries(rusun, twin.monthKey, twin.unitId ?? "", selected?.code);
   const daily = selected ? series.readings : [];
 
   if (!summary || !selected) {

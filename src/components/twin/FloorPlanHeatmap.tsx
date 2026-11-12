@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { CATEGORY_LABEL, CATEGORY_TOKEN, categoryFor } from "@/lib/twin/config";
+import { useTwinCatalog } from "@/lib/twin/api";
 import { useCatalogUnits, useUnitSummaries } from "@/lib/twin/server";
 import { nf, rp } from "@/lib/twin/format";
 import { useTwin } from "@/lib/twin/store";
@@ -62,8 +63,9 @@ function valueOf(s: UnitSummary, dim: HeatmapDimension, tariffKwh: number) {
 export function FloorPlanHeatmap() {
   const twin = useTwin();
   const rusun = twin.rusunId.replace(/\D/g, "") || "3";
-  const { units, byId } = useCatalogUnits(rusun);
-  const tower = byId.get(twin.towerId);
+  const { units } = useCatalogUnits(rusun);
+  const catalog = useTwinCatalog(rusun);
+  const tower = catalog.data?.towers.find((t) => t.id === twin.towerId);
   const [hover, setHover] = useState<string | null>(null);
 
   // Fetch the whole tower for the month, then pick the selected floor's units
@@ -91,7 +93,7 @@ export function FloorPlanHeatmap() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">
-            Interactive Floor Plan — {tower?.name}, Floor {twin.floor}
+            Interactive Floor Plan — {tower?.name ?? "Tower"}, Floor {twin.floor}
           </h2>
           <p className="text-xs text-muted-foreground">
             Average daily usage per unit. Click a unit region to sync the 3D model, charts and unit

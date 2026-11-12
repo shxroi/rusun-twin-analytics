@@ -1,4 +1,4 @@
-import { CalendarDays, Building2, Download, Droplets, RefreshCw, Zap } from "lucide-react";
+import { CalendarDays, Building2, Download, Droplets, RefreshCw, RotateCcw, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,15 @@ import { exportScopeCsv } from "@/lib/twin/export";
 import { useCatalogUnits, useUnitSummaries } from "@/lib/twin/server";
 import { cn } from "@/lib/utils";
 
-export function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
+export function TopBar({
+  title,
+  subtitle,
+  showMonthFilter = true,
+}: {
+  title: string;
+  subtitle?: string;
+  showMonthFilter?: boolean;
+}) {
   const twin = useTwin();
   const rusun = twin.rusunId.replace(/\D/g, "") || "3";
   const { units } = useCatalogUnits(rusun);
@@ -49,19 +57,33 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
           </SelectContent>
         </Select>
 
-        <Select value={twin.monthKey} onValueChange={twin.setMonthKey}>
-          <SelectTrigger className="h-9 w-[168px] bg-card">
-            <CalendarDays className="size-4 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MONTH_OPTIONS.map((m) => (
-              <SelectItem key={m} value={m}>
-                {monthLabel(m)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {showMonthFilter ? (
+          <div className="flex items-center gap-1">
+            <Select value={twin.monthKey} onValueChange={twin.setMonthKey}>
+              <SelectTrigger className="h-9 w-[168px] bg-card">
+                <CalendarDays className="size-4 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTH_OPTIONS.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {monthLabel(m)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-9"
+              onClick={twin.resetMonth}
+              title="Reset month filter"
+              aria-label="Reset month filter"
+            >
+              <RotateCcw className="size-3.5" />
+            </Button>
+          </div>
+        ) : null}
 
         <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
           {modes.map((m) => (

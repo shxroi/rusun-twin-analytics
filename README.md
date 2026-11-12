@@ -20,6 +20,12 @@ Copy `.env.example` to `.env` and set `VITE_INTELLIGENCE_API_URL` to the
 running API's `/api/forecast` URL. The API process owns the Supabase
 connection; do not put `SUPABASE_DB_URL` or a secret key in this frontend.
 
+The month selector controls historical summaries and charts. Forecast requests
+intentionally omit the selected month and use the latest trained Supabase
+cutoff, so changing the month cannot turn a live forecast into a historical
+backtest. Use the reset icon beside the month selector to return to the
+default latest-data month.
+
 Start the intelligence API from `rusun-intelligence` after training and
 forecasting a run:
 

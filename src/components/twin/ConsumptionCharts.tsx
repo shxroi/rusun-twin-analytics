@@ -40,12 +40,11 @@ export function useForecast(kind: ChartKind, unitIds: string[]) {
         .map((unit) => unit.code)
     : [];
   return useQuery<ForecastResult>({
-    queryKey: ["forecast", kind, twin.monthKey, twin.forecastHorizon, realUnitIds.join(",")],
+    queryKey: ["forecast", kind, twin.forecastHorizon, realUnitIds.join(",")],
     enabled: Boolean(catalog.data),
     queryFn: () => {
       const req = {
         unitIds: realUnitIds,
-        monthKey: twin.monthKey,
         horizonDays: twin.forecastHorizon,
       };
       if (kind === "water") return forecastWater(req);
@@ -105,7 +104,7 @@ export function ForecastChart({
         <div>
           <h3 className="text-sm font-semibold">{meta.title}</h3>
           <p className="text-[11px] text-muted-foreground">
-            Historical actual + {twin.forecastHorizon}-day forecast
+            Historical actual + live {twin.forecastHorizon}-day forecast
             {data ? ` · ${data.model} · ${Math.round(data.confidence * 100)}% confidence` : ""}
           </p>
         </div>

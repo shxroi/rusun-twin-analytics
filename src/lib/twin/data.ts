@@ -313,11 +313,18 @@ const JABATAN = ["Analis Kebijakan", "Pranata Komputer", "Auditor Ahli Muda", "P
 const ORG = ["Direktorat Jenderal Anggaran", "Sekretariat Jenderal", "Badan Otorita IKN", "Inspektorat Jenderal"];
 const SATKER = ["Biro Perencanaan", "Pusat Data dan Informasi", "Biro SDM", "Direktorat Pengendalian"];
 
+/**
+ * Illustrative resident data. The internal smart-metering database does not
+ * carry resident information (sensitive data), so this is generated
+ * deterministically from the unit id and clearly labelled as illustrative in
+ * the UI. It no longer depends on the mock unit list, so it works for real
+ * catalog unit ids (database UUIDs).
+ */
 export function getUnitResidents(unitId: string): Resident[] {
-  const unit = getUnit(unitId);
-  if (!unit) return [];
   const r = rng(`${unitId}|residents`);
-  return Array.from({ length: unit.residents }, () => ({
+  // 1..4 residents, stable per unit.
+  const count = 1 + Math.floor(r() * 4);
+  return Array.from({ length: count }, () => ({
     name: `${FIRST[Math.floor(r() * FIRST.length)]} ${LAST[Math.floor(r() * LAST.length)]}`,
     jabatan: JABATAN[Math.floor(r() * JABATAN.length)]!,
     unitOrganisasi: ORG[Math.floor(r() * ORG.length)]!,

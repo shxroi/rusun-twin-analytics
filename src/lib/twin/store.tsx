@@ -26,6 +26,7 @@ interface TwinState {
   forecastHorizon: number;
   setRusunId: (id: string) => void;
   setMonthKey: (m: string) => void;
+  resetMonth: () => void;
   setMetricMode: (m: MetricMode) => void;
   setHeatmapDim: (d: HeatmapDimension) => void;
   setGranularity: (g: Granularity) => void;
@@ -41,10 +42,11 @@ interface TwinState {
 const TwinContext = createContext<TwinState | null>(null);
 
 export const MONTH_OPTIONS = ["2026-05", "2026-06", "2026-07", "2026-08"];
+export const DEFAULT_MONTH_KEY = "2026-07";
 
 export function TwinProvider({ children }: { children: ReactNode }) {
   const [rusunId, setRusunIdRaw] = useState(RUSUN_LIST[0]!.id);
-  const [monthKey, setMonthKey] = useState("2026-07");
+  const [monthKey, setMonthKey] = useState(DEFAULT_MONTH_KEY);
   const [metricMode, setMetricMode] = useState<MetricMode>("both");
   const [heatmapDim, setHeatmapDim] = useState<HeatmapDimension>("electricity");
   const [granularity, setGranularity] = useState<Granularity>("daily");
@@ -107,6 +109,7 @@ export function TwinProvider({ children }: { children: ReactNode }) {
       forecastHorizon,
       setRusunId,
       setMonthKey,
+      resetMonth: () => setMonthKey(DEFAULT_MONTH_KEY),
       setMetricMode,
       setHeatmapDim,
       setGranularity,

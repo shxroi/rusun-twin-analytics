@@ -16,7 +16,7 @@ import type { DailyReading, ForecastPoint, ForecastResult } from "./types";
 
 export interface ForecastRequest {
   unitIds: string[];
-  monthKey: string;
+  monthKey?: string;
   horizonDays?: number;
   /** Set when a real model endpoint should be used instead of the baseline. */
   endpoint?: string;
@@ -90,7 +90,7 @@ async function runForecast(
   metric: "electricity" | "water",
 ): Promise<ForecastResult> {
   const horizonDays = req.horizonDays ?? 7;
-  const readings = aggregateSeries(req.unitIds, req.monthKey);
+  const readings = aggregateSeries(req.unitIds, req.monthKey ?? new Date().toISOString().slice(0, 7));
   const hist = history(readings, metric);
 
   const endpoint = req.endpoint ?? import.meta.env.VITE_INTELLIGENCE_API_URL ?? DEFAULT_ENDPOINT;

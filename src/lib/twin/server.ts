@@ -264,9 +264,17 @@ export function useSeries(
 }
 
 /** Daily readings for a single unit (unit detail chart). */
-export function useUnitSeries(rusun: string, monthKey: string, unitId: string) {
-  const q = useSeries(rusun, monthKey, { unitIds: [unitId] });
-  const rows = q.data?.units?.[unitId] ?? [];
+export function useUnitSeries(
+  rusun: string,
+  monthKey: string,
+  unitId: string,
+  unitCode?: string,
+) {
+  // The API keys series by unit CODE (e.g. "3A1001"); twin.unitId is the
+  // database UUID, so resolve the code from the catalog when available.
+  const code = unitCode || unitId;
+  const q = useSeries(rusun, monthKey, { unitIds: [code] });
+  const rows = q.data?.units?.[code] ?? [];
   const readings: DailyReading[] = rows.map((r) => ({
     date: r.date,
     electricity: r.electricity ?? 0,

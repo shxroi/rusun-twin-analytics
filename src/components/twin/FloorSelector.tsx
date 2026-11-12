@@ -1,4 +1,4 @@
-import { useCatalogUnits } from "@/lib/twin/server";
+import { useCatalogUnits, useUnitSummaries } from "@/lib/twin/server";
 import { useTwin } from "@/lib/twin/store";
 import { cn } from "@/lib/utils";
 
@@ -6,11 +6,14 @@ export function FloorSelector({ compact = false }: { compact?: boolean }) {
   const twin = useTwin();
   const rusun = twin.rusunId.replace(/\D/g, "") || "3";
   const { units } = useCatalogUnits(rusun);
+  const towerUnits = units.filter((u) => u.towerId === twin.towerId);
+  const { summaries } = useUnitSummaries(rusun, twin.monthKey, towerUnits, {
+    towerId: twin.towerId,
+  });
 
-  // Highest floor among the tower's units (catalog is the source of truth; the
-  // summary API carries the authoritative per-unit floor once data loads).
-  const towerFloors = units.filter((u) => u.towerId === twin.towerId).map((u) => u.floor);
-  const maxFloor = towerFloors.length ? Math.max(...towerFloors) : 10;
+  // Real floors come from the summary API (authoritative per-unit floor).
+  const summaryFloors = summaries.map((s) => s.unit.floor).filter((f) => f > 0);
+  const maxFloor = summaryFloors.length ? Math.max(...summaryFloors) : 10;
   const floors = Array.from({ length: maxFloor }, (_, i) => maxFloor - i);
 
   return (
